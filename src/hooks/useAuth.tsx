@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useContext, createContext, ReactNode } from 'react';
 import { User, LoginCredentials, AuthState } from '../types/user';
 
 // Mock user data for demonstration - matches backend seed data
@@ -52,7 +52,15 @@ const mockUsers: User[] = [
 
 const STORAGE_KEY = 'sealkloud_auth';
 
-export const useAuth = () => {
+const AuthContext = createContext<
+  (AuthState & {
+    login: (credentials: LoginCredentials) => Promise<void>;
+    logout: () => void;
+    clearError: () => void;
+  }) | undefined
+>(undefined);
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
     isAuthenticated: false,
@@ -170,13 +178,20 @@ export const useAuth = () => {
   }, []);
 
   const clearError = useCallback(() => {
-    setAuthState(prev => ({ ...prev, error: null }));
+    setAuthState((prev: AuthState) => ({ ...prev, error: null }));
   }, []);
 
-  return {
-    ...authState,
-    login,
-    logout,
-    clearError,
-  };
+  return (
+    <AuthContext.Provider value={{ ...authState, login, logout, clearError }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };

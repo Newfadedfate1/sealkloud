@@ -6,6 +6,10 @@ import { ClientTicketChart } from './ClientTicketChart';
 import { TicketTable } from './TicketTable';
 import { UserManagementModal } from '../UserManagement/UserManagementModal';
 import { mockTickets, getTicketStats, getClientTicketData } from '../../data/mockTickets';
+import { ThemeToggle } from '../ThemeToggle';
+import { NotificationCenter, Notification } from '../NotificationCenter';
+import { SearchBar, SearchFilter, SearchSuggestion } from '../SearchBar';
+import { ChatSupport } from '../ChatSupport';
 
 interface AdminDashboardProps {
   user: User;
@@ -16,6 +20,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [tickets, setTickets] = useState(mockTickets);
   const [selectedTimeframe, setSelectedTimeframe] = useState('7d');
+  const [notifications, setNotifications] = useState<Notification[]>([
+    {
+      id: '1',
+      type: 'warning',
+      title: 'Unassigned Tickets',
+      message: '5 tickets require immediate attention',
+      timestamp: new Date(),
+      read: false,
+      action: {
+        label: 'View',
+        onClick: () => console.log('View unassigned tickets')
+      }
+    },
+    {
+      id: '2',
+      type: 'info',
+      title: 'System Update',
+      message: 'New features have been deployed',
+      timestamp: new Date(Date.now() - 3600000),
+      read: true
+    }
+  ]);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   
   const ticketStats = getTicketStats();
   const clientData = getClientTicketData();
@@ -59,6 +86,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
     ));
   };
 
+  const handleNotificationMarkAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => 
+      n.id === id ? { ...n, read: true } : n
+    ));
+  };
+
+  const handleNotificationMarkAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const handleNotificationDelete = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const handleSearch = (query: string, filters: SearchFilter[]) => {
+    console.log('Search:', query, filters);
+    // Implement search logic here
+  };
+
+  const handleSearchClear = () => {
+    console.log('Search cleared');
+    // Reset search results
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high': return 'text-red-600 bg-red-50';
@@ -69,25 +120,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center gap-3">
               <Shield className="h-8 w-8 text-red-600" />
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">Admin Dashboard</h1>
-                <p className="text-sm text-gray-600">System Administration & Analytics</p>
+                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Admin Dashboard</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">System Administration & Analytics</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Timeframe:</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Timeframe:</span>
                 <select 
                   value={selectedTimeframe}
                   onChange={(e) => setSelectedTimeframe(e.target.value)}
-                  className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white"
+                  className="text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="24h">Last 24h</option>
                   <option value="7d">Last 7 days</option>
@@ -95,12 +146,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
                   <option value="90d">Last 90 days</option>
                 </select>
               </div>
-              <span className="text-sm text-gray-600">
+              <ThemeToggle />
+              <NotificationCenter
+                notifications={notifications}
+                onMarkAsRead={handleNotificationMarkAsRead}
+                onMarkAllAsRead={handleNotificationMarkAllAsRead}
+                onDelete={handleNotificationDelete}
+              />
+              <span className="text-sm text-gray-600 dark:text-gray-400">
                 Welcome, {user.firstName} {user.lastName}
               </span>
               <button
                 onClick={onLogout}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
               >
                 Sign Out
               </button>
@@ -111,6 +169,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Search Bar */}
+        <div className="mb-8">
+          <SearchBar
+            onSearch={handleSearch}
+            onClear={handleSearchClear}
+            placeholder="Search tickets, users, or content..."
+            className="max-w-2xl"
+          />
+        </div>
+
         {/* Key Performance Indicators */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <TicketStatsCard
@@ -151,38 +219,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Critical Issues */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Critical Issues</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Critical Issues</h2>
                 <AlertTriangle className="h-5 w-5 text-red-500" />
               </div>
               <div className="space-y-3">
                 {metrics.tickets.unassigned > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
                     <div>
-                      <p className="font-medium text-red-900">{metrics.tickets.unassigned} Unassigned Tickets</p>
-                      <p className="text-sm text-red-600">Requires immediate attention</p>
+                      <p className="font-medium text-red-900 dark:text-red-200">{metrics.tickets.unassigned} Unassigned Tickets</p>
+                      <p className="text-sm text-red-600 dark:text-red-400">Requires immediate attention</p>
                     </div>
-                    <button className="text-red-600 hover:text-red-800 text-sm font-medium">
+                    <button className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm font-medium">
                       View →
                     </button>
                   </div>
                 )}
-                <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                   <div>
-                    <p className="font-medium text-yellow-900">Server Load: {metrics.system.serverLoad}%</p>
-                    <p className="text-sm text-yellow-600">Moderate - Monitor closely</p>
+                    <p className="font-medium text-yellow-900 dark:text-yellow-200">Server Load: {metrics.system.serverLoad}%</p>
+                    <p className="text-sm text-yellow-600 dark:text-yellow-400">Moderate - Monitor closely</p>
                   </div>
-                  <button className="text-yellow-600 hover:text-yellow-800 text-sm font-medium">
+                  <button className="text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-300 text-sm font-medium">
                     Details →
                   </button>
                 </div>
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                   <div>
-                    <p className="font-medium text-blue-900">SLA Compliance: {metrics.performance.slaCompliance}%</p>
-                    <p className="text-sm text-blue-600">Above target threshold</p>
+                    <p className="font-medium text-blue-900 dark:text-blue-200">SLA Compliance: {metrics.performance.slaCompliance}%</p>
+                    <p className="text-sm text-blue-600 dark:text-blue-400">Above target threshold</p>
                   </div>
-                  <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                  <button className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium">
                     Report →
                   </button>
                 </div>
@@ -192,36 +260,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
 
           {/* System Health */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">System Health</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">System Health</h2>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Database className="h-4 w-4 text-green-500" />
-                    <span className="text-gray-600">Database</span>
+                    <span className="text-gray-600 dark:text-gray-400">Database</span>
                   </div>
-                  <span className="text-green-600 font-medium">Healthy</span>
+                  <span className="text-green-600 dark:text-green-400 font-medium">Healthy</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Server className="h-4 w-4 text-yellow-500" />
-                    <span className="text-gray-600">Server Load</span>
+                    <span className="text-gray-600 dark:text-gray-400">Server Load</span>
                   </div>
-                  <span className="text-yellow-600 font-medium">{metrics.system.serverLoad}%</span>
+                  <span className="text-yellow-600 dark:text-yellow-400 font-medium">{metrics.system.serverLoad}%</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-blue-500" />
-                    <span className="text-gray-600">Active Sessions</span>
+                    <span className="text-gray-600 dark:text-gray-400">Active Sessions</span>
                   </div>
-                  <span className="text-gray-900 font-medium">{metrics.system.activeSessions}</span>
+                  <span className="text-gray-900 dark:text-white font-medium">{metrics.system.activeSessions}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Activity className="h-4 w-4 text-purple-500" />
-                    <span className="text-gray-600">Active Users</span>
+                    <span className="text-gray-600 dark:text-gray-400">Active Users</span>
                   </div>
-                  <span className="text-gray-900 font-medium">{metrics.system.activeUsers}</span>
+                  <span className="text-gray-900 dark:text-white font-medium">{metrics.system.activeUsers}</span>
                 </div>
               </div>
             </div>
@@ -229,33 +297,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
 
           {/* Performance Insights */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Performance Insights</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Performance Insights</h2>
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600">Customer Satisfaction</span>
-                    <span className="font-medium">{metrics.performance.customerSatisfaction}/5.0</span>
+                    <span className="text-gray-600 dark:text-gray-400">Customer Satisfaction</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{metrics.performance.customerSatisfaction}/5.0</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     <div className="bg-green-500 h-2 rounded-full" style={{ width: `${(metrics.performance.customerSatisfaction / 5) * 100}%` }}></div>
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600">Avg Resolution Time</span>
-                    <span className="font-medium">{metrics.tickets.avgResolutionTime}h</span>
+                    <span className="text-gray-600 dark:text-gray-400">Avg Resolution Time</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{metrics.tickets.avgResolutionTime}h</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${Math.min((metrics.tickets.avgResolutionTime / 8) * 100, 100)}%` }}></div>
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600">Ticket Volume Trend</span>
-                    <span className="font-medium text-green-600">{metrics.tickets.trend}</span>
+                    <span className="text-gray-600 dark:text-gray-400">Ticket Volume Trend</span>
+                    <span className="font-medium text-green-600 dark:text-green-400">{metrics.tickets.trend}</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     <div className="bg-green-500 h-2 rounded-full" style={{ width: '60%' }}></div>
                   </div>
                 </div>
@@ -265,12 +333,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
         </div>
 
         {/* Client Distribution Chart */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 mb-8">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">Client Ticket Distribution</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Client Ticket Distribution</h2>
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-gray-400" />
-              <select className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white">
+              <select className="text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                 <option>All Clients</option>
                 <option>Top 5</option>
                 <option>Active Only</option>
@@ -281,25 +349,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">Quick Actions</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Quick Actions</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <button 
               onClick={() => setShowUserManagement(true)}
-              className="bg-blue-50 hover:bg-blue-100 text-blue-700 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
+              className="bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
             >
               <Users className="h-6 w-6" />
               <span className="text-sm font-medium">Manage Users</span>
             </button>
-            <button className="bg-green-50 hover:bg-green-100 text-green-700 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors">
+            <button className="bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 text-green-700 dark:text-green-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors">
               <BarChart3 className="h-6 w-6" />
               <span className="text-sm font-medium">Analytics</span>
             </button>
-            <button className="bg-purple-50 hover:bg-purple-100 text-purple-700 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors">
+            <button className="bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 text-purple-700 dark:text-purple-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors">
               <Settings className="h-6 w-6" />
               <span className="text-sm font-medium">Settings</span>
             </button>
-            <button className="bg-orange-50 hover:bg-orange-100 text-orange-700 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors">
+            <button className="bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-700 dark:text-orange-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors">
               <Eye className="h-6 w-6" />
               <span className="text-sm font-medium">Audit Log</span>
             </button>
@@ -307,13 +375,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
         </div>
 
         {/* Enhanced Ticket Management Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="p-6 border-b border-gray-100">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+          <div className="p-6 border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Ticket Management</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Ticket Management</h2>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Showing {tickets.length} tickets</span>
-                <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Showing {tickets.length} tickets</span>
+                <button className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium">
                   Export Data →
                 </button>
               </div>
@@ -334,6 +402,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
         isOpen={showUserManagement}
         onClose={() => setShowUserManagement(false)}
         currentUser={user}
+      />
+
+      {/* Chat Support */}
+      <ChatSupport
+        isOpen={isChatOpen}
+        onToggle={() => setIsChatOpen(!isChatOpen)}
       />
     </div>
   );

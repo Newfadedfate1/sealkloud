@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Ticket, Plus, Search, Filter, Eye, Clock, AlertTriangle, CheckCircle, MessageSquare, FileText, User, Calendar, Phone, Mail, HelpCircle, Bell, BookOpen, Settings } from 'lucide-react';
+import { Ticket, Plus, Search, Filter, Eye, Clock, AlertTriangle, CheckCircle, MessageSquare, FileText, User, Calendar, Phone, Mail, HelpCircle, Bell, BookOpen, Settings, Brain, BarChart3, Wrench, MessageCircle } from 'lucide-react';
 import { User as UserType } from '../../types/user';
 import { Ticket as TicketType, TicketStatus, ProblemLevel } from '../../types/ticket';
 import { CreateTicketModal } from '../Tickets/CreateTicketModal';
@@ -10,6 +10,10 @@ import { NotificationCenter, Notification } from '../NotificationCenter';
 import { SearchBar, SearchFilter } from '../SearchBar';
 import { KnowledgeBase } from '../KnowledgeBase';
 import { ClientSettings } from '../Client/ClientSettings';
+import { SmartTicketAssistant } from '../AI/SmartTicketAssistant';
+import { SupportChatbot } from '../AI/SupportChatbot';
+import { ClientAnalytics } from '../AI/ClientAnalytics';
+import { SelfServiceTools } from '../AI/SelfServiceTools';
 
 interface ClientDashboardProps {
   user: UserType;
@@ -50,6 +54,13 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
   ]);
   const [showKnowledgeBase, setShowKnowledgeBase] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  
+  // Phase 2 AI Enhancement States
+  const [showSmartAssistant, setShowSmartAssistant] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showSelfService, setShowSelfService] = useState(false);
+  const [showChatbot, setShowChatbot] = useState(false);
+  const [ticketContent, setTicketContent] = useState('');
 
   const getStatusInfo = (status: TicketStatus) => {
     const statusMap = {
@@ -172,6 +183,22 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
     // Reset other filters
   };
 
+  // Phase 2 AI Enhancement Handlers
+  const handleSmartAssistantSuggestion = (suggestion: any) => {
+    // Apply AI suggestions to ticket creation
+    const ticketData = {
+      title: suggestion.category,
+      description: ticketContent,
+      problemLevel: suggestion.priority,
+      category: suggestion.category
+    };
+    handleCreateTicket(ticketData);
+  };
+
+  const handleChatbotTicketCreation = (ticketData: any) => {
+    handleCreateTicket(ticketData);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Enhanced Header */}
@@ -188,6 +215,13 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowAnalytics(true)}
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="Analytics"
+              >
+                <BarChart3 className="h-5 w-5" />
+              </button>
               <button
                 onClick={() => setShowKnowledgeBase(true)}
                 className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -269,6 +303,13 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowSelfService(true)}
+                className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                <Wrench className="h-4 w-4" />
+                Self-Service
+              </button>
               <button
                 onClick={() => setShowKnowledgeBase(true)}
                 className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
@@ -408,6 +449,13 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
               <h3 className="font-medium text-gray-900 dark:text-white mb-2">Need immediate assistance?</h3>
               <p className="text-gray-600 dark:text-gray-400 mb-4">For urgent issues, you can contact our support team directly</p>
               <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => setShowChatbot(true)}
+                  className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  AI Chat Support
+                </button>
                 <a
                   href="mailto:support@sealkloud.com"
                   className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
@@ -424,6 +472,49 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
                 </a>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Support hours: Monday-Friday, 9AM-6PM EST</p>
+            </div>
+          </div>
+        </div>
+
+        {/* AI-Powered Features Section */}
+        <div className="mt-8 bg-gradient-to-r from-purple-500 to-blue-600 dark:from-purple-600 dark:to-blue-700 rounded-xl p-6 text-white shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
+                <Brain className="h-6 w-6" />
+                AI-Powered Support
+              </h2>
+              <p className="text-purple-100 dark:text-purple-200 mb-4">Get instant help with our intelligent AI features</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <Brain className="h-4 w-4" />
+                  Smart Ticket Categorization
+                </div>
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4" />
+                  AI Chat Support
+                </div>
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Predictive Analytics
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowSmartAssistant(true)}
+                className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                <Brain className="h-4 w-4" />
+                Smart Assistant
+              </button>
+              <button
+                onClick={() => setShowChatbot(true)}
+                className="bg-white text-purple-600 dark:text-purple-700 px-4 py-2 rounded-lg font-medium hover:bg-purple-50 dark:hover:bg-purple-100 transition-colors flex items-center gap-2"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Start Chat
+              </button>
             </div>
           </div>
         </div>
@@ -483,6 +574,51 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
           </div>
         </div>
       )}
+
+      {/* Phase 2 AI Modals */}
+      {/* Smart Ticket Assistant Modal */}
+      {showSmartAssistant && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <SmartTicketAssistant
+              ticketContent={ticketContent}
+              onSuggestionSelect={handleSmartAssistantSuggestion}
+              onClose={() => setShowSmartAssistant(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Analytics Modal */}
+      {showAnalytics && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <ClientAnalytics
+              userId={user.id}
+              onClose={() => setShowAnalytics(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Self-Service Tools Modal */}
+      {showSelfService && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <SelfServiceTools
+              onClose={() => setShowSelfService(false)}
+              onCreateTicket={handleCreateTicket}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* AI Chatbot */}
+      <SupportChatbot
+        isOpen={showChatbot}
+        onToggle={() => setShowChatbot(!showChatbot)}
+        onCreateTicket={handleChatbotTicketCreation}
+      />
     </div>
   );
 };

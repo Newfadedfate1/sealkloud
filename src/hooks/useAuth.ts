@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { User, LoginCredentials, AuthState, UserRole } from '../types/user';
 
-// Mock user data for demonstration
+// Mock user data for demonstration - matches backend seed data
 const mockUsers: User[] = [
   {
     id: '1',
@@ -9,7 +9,7 @@ const mockUsers: User[] = [
     firstName: 'John',
     lastName: 'Client',
     role: 'client',
-    companyId: 'company1',
+    companyId: 'sealkloud',
     isActive: true,
   },
   {
@@ -18,7 +18,7 @@ const mockUsers: User[] = [
     firstName: 'Jane',
     lastName: 'Employee',
     role: 'employee_l1',
-    companyId: 'company1',
+    companyId: 'sealkloud',
     isActive: true,
   },
   {
@@ -27,7 +27,7 @@ const mockUsers: User[] = [
     firstName: 'Admin',
     lastName: 'User',
     role: 'admin',
-    companyId: 'company1',
+    companyId: 'sealkloud',
     isActive: true,
   },
   {
@@ -36,7 +36,7 @@ const mockUsers: User[] = [
     firstName: 'Level 2',
     lastName: 'Tech',
     role: 'employee_l2',
-    companyId: 'company1',
+    companyId: 'sealkloud',
     isActive: true,
   },
   {
@@ -45,7 +45,7 @@ const mockUsers: User[] = [
     firstName: 'Level 3',
     lastName: 'Expert',
     role: 'employee_l3',
-    companyId: 'company1',
+    companyId: 'sealkloud',
     isActive: true,
   },
 ];

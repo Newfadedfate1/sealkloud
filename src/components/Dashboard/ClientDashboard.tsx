@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { Ticket, Plus, Search, Filter, Eye, Clock, AlertTriangle, CheckCircle, MessageSquare, FileText, User, Calendar, Phone, Mail, HelpCircle } from 'lucide-react';
+import { Ticket, Plus, Search, Filter, Eye, Clock, AlertTriangle, CheckCircle, MessageSquare, FileText, User, Calendar, Phone, Mail, HelpCircle, Bell, BookOpen, Settings } from 'lucide-react';
 import { User as UserType } from '../../types/user';
 import { Ticket as TicketType, TicketStatus, ProblemLevel } from '../../types/ticket';
 import { CreateTicketModal } from '../Tickets/CreateTicketModal';
 import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
 import { mockTickets } from '../../data/mockTickets';
+import { ThemeToggle } from '../ThemeToggle';
+import { NotificationCenter, Notification } from '../NotificationCenter';
+import { SearchBar, SearchFilter } from '../SearchBar';
+import { KnowledgeBase } from '../KnowledgeBase';
+import { ClientSettings } from '../Client/ClientSettings';
 
 interface ClientDashboardProps {
   user: UserType;
@@ -19,6 +24,32 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
   const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<TicketStatus | 'all'>('all');
+  
+  // Phase 1 Enhancement States
+  const [notifications, setNotifications] = useState<Notification[]>([
+    {
+      id: '1',
+      type: 'info',
+      title: 'Ticket Updated',
+      message: 'Your ticket TK-001 has been assigned to a specialist',
+      timestamp: new Date(Date.now() - 1000 * 60 * 30),
+      read: false,
+      action: {
+        label: 'View',
+        onClick: () => console.log('View ticket TK-001')
+      }
+    },
+    {
+      id: '2',
+      type: 'success',
+      title: 'Issue Resolved',
+      message: 'Your ticket TK-002 has been resolved successfully',
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
+      read: true
+    }
+  ]);
+  const [showKnowledgeBase, setShowKnowledgeBase] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const getStatusInfo = (status: TicketStatus) => {
     const statusMap = {
@@ -115,92 +146,159 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
     setSelectedTicket(null);
   };
 
+  // Phase 1 Enhancement Handlers
+  const handleNotificationMarkAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => 
+      n.id === id ? { ...n, read: true } : n
+    ));
+  };
+
+  const handleNotificationMarkAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const handleNotificationDelete = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const handleSearch = (query: string, filters: SearchFilter[]) => {
+    setSearchTerm(query);
+    // Apply additional filters if needed
+    console.log('Advanced search:', query, filters);
+  };
+
+  const handleSearchClear = () => {
+    setSearchTerm('');
+    // Reset other filters
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Simplified Header */}
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Enhanced Header */}
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="bg-blue-100 p-2 rounded-lg">
-                <Ticket className="h-6 w-6 text-blue-600" />
+              <div className="bg-blue-100 dark:bg-blue-900/20 p-2 rounded-lg">
+                <Ticket className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Support Portal</h1>
-                <p className="text-sm text-gray-600">Welcome back, {user.firstName}</p>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">Support Portal</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Welcome back, {user.firstName}</p>
               </div>
             </div>
-            <button
-              onClick={onLogout}
-              className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm"
-            >
-              Sign Out
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowKnowledgeBase(true)}
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="Knowledge Base"
+              >
+                <BookOpen className="h-5 w-5" />
+              </button>
+              <NotificationCenter
+                notifications={notifications}
+                onMarkAsRead={handleNotificationMarkAsRead}
+                onMarkAllAsRead={handleNotificationMarkAllAsRead}
+                onDelete={handleNotificationDelete}
+              />
+              <ThemeToggle />
+              <button
+                onClick={() => setShowSettings(true)}
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="Settings"
+              >
+                <Settings className="h-5 w-5" />
+              </button>
+              <button
+                onClick={onLogout}
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white px-3 py-2 text-sm font-medium transition-colors"
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8">
+        {/* Enhanced Search Bar */}
+        <div className="mb-8">
+          <SearchBar
+            onSearch={handleSearch}
+            onClear={handleSearchClear}
+            placeholder="Search tickets, knowledge base, or get help..."
+            className="max-w-2xl"
+          />
+        </div>
+
         {/* Quick Overview Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <div className="text-2xl font-bold text-gray-900">{ticketStats.total}</div>
-            <div className="text-sm text-gray-600">Total Tickets</div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-gray-900 dark:text-white">{ticketStats.total}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Total Tickets</div>
           </div>
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <div className="text-2xl font-bold text-blue-600">{ticketStats.active}</div>
-            <div className="text-sm text-gray-600">Active</div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{ticketStats.active}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Active</div>
           </div>
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <div className="text-2xl font-bold text-green-600">{ticketStats.resolved}</div>
-            <div className="text-sm text-gray-600">Resolved</div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{ticketStats.resolved}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Resolved</div>
           </div>
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <div className="text-2xl font-bold text-orange-600">{ticketStats.urgent}</div>
-            <div className="text-sm text-gray-600">Urgent</div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{ticketStats.urgent}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Urgent</div>
           </div>
         </div>
 
-        {/* Main Action */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 mb-8 text-white">
+        {/* Enhanced Main Action */}
+        <div className="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl p-6 mb-8 text-white shadow-lg">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold mb-2">Need Help?</h2>
-              <p className="text-blue-100">Create a support ticket and our team will assist you</p>
+              <p className="text-blue-100 dark:text-blue-200">Create a support ticket and our team will assist you</p>
+              <div className="flex items-center gap-4 mt-3 text-sm">
+                <span className="flex items-center gap-1">
+                  <Clock className="h-4 w-4" />
+                  Avg Response: 2.4h
+                </span>
+                <span className="flex items-center gap-1">
+                  <CheckCircle className="h-4 w-4" />
+                  98% Resolution Rate
+                </span>
+              </div>
             </div>
-            <button
-              onClick={() => setShowCreateTicket(true)}
-              className="bg-white text-blue-600 px-6 py-3 rounded-lg font-medium hover:bg-blue-50 transition-colors flex items-center gap-2"
-            >
-              <Plus className="h-5 w-5" />
-              New Ticket
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowKnowledgeBase(true)}
+                className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                <BookOpen className="h-4 w-4" />
+                Help Center
+              </button>
+              <button
+                onClick={() => setShowCreateTicket(true)}
+                className="bg-white text-blue-600 dark:text-blue-700 px-6 py-3 rounded-lg font-medium hover:bg-blue-50 dark:hover:bg-blue-100 transition-colors flex items-center gap-2"
+              >
+                <Plus className="h-5 w-5" />
+                New Ticket
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Tickets Section */}
-        <div className="bg-white rounded-xl shadow-sm">
-          <div className="p-6 border-b border-gray-200">
+        {/* Enhanced Tickets Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900">Your Support Tickets</h2>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Your Support Tickets</h2>
               
-              {/* Simple Filters */}
+              {/* Enhanced Filters */}
               <div className="flex gap-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search tickets..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  />
-                </div>
-                
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as TicketStatus | 'all')}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="all">All Tickets</option>
                   <option value="open">Open</option>
@@ -208,12 +306,16 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
                   <option value="in-progress">In Progress</option>
                   <option value="resolved">Resolved</option>
                 </select>
+                
+                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <span>Showing {filteredTickets.length} of {tickets.length}</span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Tickets List */}
-          <div className="divide-y divide-gray-200">
+          {/* Enhanced Tickets List */}
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {filteredTickets.length > 0 ? (
               filteredTickets.map((ticket) => {
                 const statusInfo = getStatusInfo(ticket.status);
@@ -221,30 +323,30 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
                 const StatusIcon = statusInfo.icon;
                 
                 return (
-                  <div key={ticket.id} className="p-6 hover:bg-gray-50 transition-colors">
+                  <div key={ticket.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         {/* Ticket Header */}
                         <div className="flex items-center gap-3 mb-3">
-                          <span className="font-mono text-sm font-medium text-gray-600">{ticket.id}</span>
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${statusInfo.color}`}>
+                          <span className="font-mono text-sm font-medium text-gray-600 dark:text-gray-400">{ticket.id}</span>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${statusInfo.color} dark:bg-opacity-20`}>
                             <StatusIcon className="h-3 w-3" />
                             {statusInfo.label}
                           </span>
-                          <span className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full border ${urgencyInfo.color}`}>
+                          <span className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full border ${urgencyInfo.color} dark:bg-opacity-20`}>
                             {urgencyInfo.label}
                           </span>
                         </div>
                         
                         {/* Ticket Content */}
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">{ticket.title}</h3>
-                        <p className="text-gray-600 mb-3 line-clamp-2">{ticket.description}</p>
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">{ticket.title}</h3>
+                        <p className="text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">{ticket.description}</p>
                         
                         {/* Status Description */}
-                        <p className="text-sm text-gray-500 mb-3">{statusInfo.description}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{statusInfo.description}</p>
                         
                         {/* Ticket Meta */}
-                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                        <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                           <span>Created {ticket.submittedDate.toLocaleDateString()}</span>
                           <span>•</span>
                           <span>Updated {ticket.lastUpdated.toLocaleDateString()}</span>
@@ -260,7 +362,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
                       {/* Action Button */}
                       <button
                         onClick={() => setSelectedTicket(ticket)}
-                        className="ml-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                        className="ml-4 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                       >
                         <Eye className="h-4 w-4" />
                         View
@@ -273,12 +375,12 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
               <div className="text-center py-12">
                 {tickets.length === 0 ? (
                   <div>
-                    <Ticket className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No tickets yet</h3>
-                    <p className="text-gray-500 mb-6">Create your first support ticket to get help from our team</p>
+                    <Ticket className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No tickets yet</h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6">Create your first support ticket to get help from our team</p>
                     <button
                       onClick={() => setShowCreateTicket(true)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors inline-flex items-center gap-2"
+                      className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors inline-flex items-center gap-2"
                     >
                       <Plus className="h-5 w-5" />
                       Create First Ticket
@@ -286,9 +388,9 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
                   </div>
                 ) : (
                   <div>
-                    <Filter className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No matching tickets</h3>
-                    <p className="text-gray-500">Try adjusting your search or filter</p>
+                    <Filter className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No matching tickets</h3>
+                    <p className="text-gray-500 dark:text-gray-400">Try adjusting your search or filter</p>
                   </div>
                 )}
               </div>
@@ -296,38 +398,38 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
           </div>
         </div>
 
-        {/* Help Section */}
-        <div className="mt-8 bg-gray-100 rounded-xl p-6">
+        {/* Enhanced Help Section */}
+        <div className="mt-8 bg-gray-100 dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-start gap-4">
-            <div className="bg-blue-100 p-2 rounded-lg">
-              <HelpCircle className="h-6 w-6 text-blue-600" />
+            <div className="bg-blue-100 dark:bg-blue-900/20 p-2 rounded-lg">
+              <HelpCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
             </div>
             <div className="flex-1">
-              <h3 className="font-medium text-gray-900 mb-2">Need immediate assistance?</h3>
-              <p className="text-gray-600 mb-4">For urgent issues, you can contact our support team directly</p>
+              <h3 className="font-medium text-gray-900 dark:text-white mb-2">Need immediate assistance?</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">For urgent issues, you can contact our support team directly</p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <a
                   href="mailto:support@sealkloud.com"
-                  className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
+                  className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
                 >
                   <Mail className="h-4 w-4" />
                   support@sealkloud.com
                 </a>
                 <a
                   href="tel:+1-555-123-4567"
-                  className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
+                  className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
                 >
                   <Phone className="h-4 w-4" />
                   +1 (555) 123-4567
                 </a>
               </div>
-              <p className="text-sm text-gray-500 mt-2">Support hours: Monday-Friday, 9AM-6PM EST</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Support hours: Monday-Friday, 9AM-6PM EST</p>
             </div>
           </div>
         </div>
       </main>
 
-      {/* Modals */}
+      {/* Enhanced Modals */}
       <CreateTicketModal
         isOpen={showCreateTicket}
         onClose={() => setShowCreateTicket(false)}
@@ -344,6 +446,42 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
           currentUser={user}
           availableUsers={[]}
         />
+      )}
+
+      {/* Knowledge Base Modal */}
+      {showKnowledgeBase && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Knowledge Base</h2>
+              <button
+                onClick={() => setShowKnowledgeBase(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+            <KnowledgeBase />
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Settings</h2>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+            <ClientSettings onClose={() => setShowSettings(false)} />
+          </div>
+        </div>
       )}
     </div>
   );

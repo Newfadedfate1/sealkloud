@@ -111,16 +111,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 500));
 
+      // Validate input
+      if (!credentials.email || !credentials.password) {
+        throw new Error('Email and password are required');
+      }
+
       // Normalize email for comparison
       const normalizedEmail = credentials.email.toLowerCase().trim();
+      const normalizedPassword = credentials.password.trim();
+      
       console.log('Looking for user with email:', normalizedEmail);
+      console.log('Available users:', mockUsers.map(u => u.email));
       
       // Mock authentication - find user by email
       const user = mockUsers.find(u => u.email.toLowerCase() === normalizedEmail);
       
       if (!user) {
-        console.log('User not found');
-        throw new Error('Invalid email or password');
+        console.log('User not found for email:', normalizedEmail);
+        console.log('Available emails:', mockUsers.map(u => u.email));
+        throw new Error('Invalid email or password. Please use one of the demo accounts: admin@sealkloud.com, employee@sealkloud.com, client@sealkloud.com, l2tech@sealkloud.com, or l3expert@sealkloud.com');
       }
 
       console.log('Found user:', user);
@@ -132,9 +141,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // In real implementation, verify password hash
       // For demo purposes, accept 'password123' for all accounts
-      if (credentials.password !== 'password123') {
-        console.log('Invalid password');
-        throw new Error('Invalid email or password');
+      if (normalizedPassword !== 'password123') {
+        console.log('Invalid password. Expected: password123, Got:', normalizedPassword);
+        throw new Error('Invalid email or password. For demo accounts, use password: password123');
       }
 
       const authenticatedUser = { 
@@ -162,6 +171,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isLoading: false,
         error: error instanceof Error ? error.message : 'Login failed',
       }));
+      throw error; // Re-throw to allow form to handle it
     }
   }, []);
 

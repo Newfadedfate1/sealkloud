@@ -51,8 +51,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading, error
     }
   };
 
-  const fillDemoCredentials = (email: string) => {
-    setCredentials({ email, password: 'password123' });
+  const fillDemoCredentials = (email: string, password: string = 'password123') => {
+    console.log('Filling demo credentials:', { email, password });
+    setCredentials({ email, password });
     setFieldErrors({});
   };
 
@@ -65,24 +66,57 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading, error
         </div>
       )}
 
-      {/* Quick Login Buttons */}
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        <button
-          type="button"
-          onClick={() => fillDemoCredentials('admin@sealkloud.com')}
-          className="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-2 py-1 rounded border border-red-200 transition-colors"
-          disabled={isLoading}
-        >
-          Admin Login
-        </button>
-        <button
-          type="button"
-          onClick={() => fillDemoCredentials('employee@sealkloud.com')}
-          className="text-xs bg-green-50 hover:bg-green-100 text-green-700 px-2 py-1 rounded border border-green-200 transition-colors"
-          disabled={isLoading}
-        >
-          Employee Login
-        </button>
+      {/* Demo Credentials Info */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-blue-800 mb-2">Demo Credentials</h3>
+        <p className="text-xs text-blue-700 mb-3">Use these credentials to test different user roles:</p>
+        <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => fillDemoCredentials('admin@sealkloud.com')}
+              className="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-3 py-2 rounded border border-red-200 transition-colors"
+              disabled={isLoading}
+            >
+              Admin Login
+            </button>
+            <button
+              type="button"
+              onClick={() => fillDemoCredentials('employee@sealkloud.com')}
+              className="text-xs bg-green-50 hover:bg-green-100 text-green-700 px-3 py-2 rounded border border-green-200 transition-colors"
+              disabled={isLoading}
+            >
+              Employee L1
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => fillDemoCredentials('client@sealkloud.com')}
+              className="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-2 py-1 rounded border border-blue-200 transition-colors"
+              disabled={isLoading}
+            >
+              Client
+            </button>
+            <button
+              type="button"
+              onClick={() => fillDemoCredentials('l2tech@sealkloud.com')}
+              className="text-xs bg-yellow-50 hover:bg-yellow-100 text-yellow-700 px-2 py-1 rounded border border-yellow-200 transition-colors"
+              disabled={isLoading}
+            >
+              L2 Tech
+            </button>
+            <button
+              type="button"
+              onClick={() => fillDemoCredentials('l3expert@sealkloud.com')}
+              className="text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 px-2 py-1 rounded border border-purple-200 transition-colors"
+              disabled={isLoading}
+            >
+              L3 Expert
+            </button>
+          </div>
+        </div>
+        <p className="text-xs text-blue-600 mt-2">Password for all accounts: <code className="bg-blue-100 px-1 rounded">password123</code></p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

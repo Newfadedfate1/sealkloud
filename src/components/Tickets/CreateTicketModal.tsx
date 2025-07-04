@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, AlertTriangle, FileText, Tag, Zap, Save, User, Mail } from 'lucide-react';
+import { X, AlertTriangle, FileText, Tag, Zap, Save, User, HelpCircle } from 'lucide-react';
 import { ProblemLevel } from '../../types/ticket';
 import { User as UserType } from '../../types/user';
 
@@ -16,45 +16,38 @@ interface CreateTicketModalProps {
 }
 
 const issueCategories = [
-  { value: 'technical', label: 'Technical Issue', icon: '🔧' },
-  { value: 'account', label: 'Account Access', icon: '👤' },
-  { value: 'billing', label: 'Billing & Payment', icon: '💳' },
-  { value: 'software', label: 'Software Problem', icon: '💻' },
-  { value: 'hardware', label: 'Hardware Issue', icon: '🖥️' },
-  { value: 'network', label: 'Network/Connectivity', icon: '🌐' },
-  { value: 'security', label: 'Security Concern', icon: '🔒' },
-  { value: 'feature', label: 'Feature Request', icon: '✨' },
-  { value: 'other', label: 'Other', icon: '❓' }
+  { value: 'technical', label: 'Technical Issue', description: 'Software bugs, system errors' },
+  { value: 'account', label: 'Account Access', description: 'Login problems, password reset' },
+  { value: 'billing', label: 'Billing', description: 'Payment issues, invoices' },
+  { value: 'hardware', label: 'Hardware', description: 'Equipment problems' },
+  { value: 'network', label: 'Network', description: 'Connectivity issues' },
+  { value: 'other', label: 'Other', description: 'General questions' }
 ];
 
 const urgencyLevels = [
   {
     value: 'low' as ProblemLevel,
     label: 'Low',
-    description: 'Minor issue, no immediate impact',
-    color: 'text-green-700 bg-green-50 border-green-200',
-    icon: '🟢'
+    description: 'Minor issue, no rush',
+    example: 'Feature request, general question'
   },
   {
     value: 'medium' as ProblemLevel,
     label: 'Medium',
-    description: 'Moderate impact, affects some functionality',
-    color: 'text-yellow-700 bg-yellow-50 border-yellow-200',
-    icon: '🟡'
+    description: 'Normal business impact',
+    example: 'Software bug affecting some users'
   },
   {
     value: 'high' as ProblemLevel,
     label: 'High',
-    description: 'Significant impact, affects business operations',
-    color: 'text-orange-700 bg-orange-50 border-orange-200',
-    icon: '🟠'
+    description: 'Significant business impact',
+    example: 'System slow, many users affected'
   },
   {
     value: 'critical' as ProblemLevel,
     label: 'Critical',
-    description: 'System down, severe business impact',
-    color: 'text-red-700 bg-red-50 border-red-200',
-    icon: '🔴'
+    description: 'System down, urgent',
+    example: 'Complete system outage'
   }
 ];
 
@@ -79,19 +72,15 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!formData.title.trim()) {
-      newErrors.title = 'Title is required';
-    } else if (formData.title.length < 5) {
-      newErrors.title = 'Title must be at least 5 characters';
+      newErrors.title = 'Please enter a title';
     }
 
     if (!formData.description.trim()) {
-      newErrors.description = 'Description is required';
-    } else if (formData.description.length < 20) {
-      newErrors.description = 'Please provide more details (at least 20 characters)';
+      newErrors.description = 'Please describe your issue';
     }
 
     if (!formData.category) {
-      newErrors.category = 'Please select an issue category';
+      newErrors.category = 'Please select a category';
     }
 
     setErrors(newErrors);
@@ -106,12 +95,9 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
     setIsSubmitting(true);
     
     try {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
       onSubmit(formData);
       
-      // Reset form
       setFormData({
         title: '',
         description: '',
@@ -136,84 +122,72 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
+        {/* Simplified Header */}
+        <div className="bg-blue-600 text-white p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold">Create New Support Ticket</h2>
-              <p className="text-blue-100 mt-1">Describe your issue and we'll help you resolve it</p>
+              <h2 className="text-xl font-bold">Create Support Ticket</h2>
+              <p className="text-blue-100 text-sm mt-1">Tell us about your issue and we'll help</p>
             </div>
             <button
               onClick={onClose}
               className="text-white hover:text-blue-200 p-2 rounded-lg hover:bg-white hover:bg-opacity-10 transition-colors"
             >
-              <X className="h-6 w-6" />
+              <X className="h-5 w-5" />
             </button>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-          {/* Client Info */}
+          {/* Contact Info */}
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Contact Information
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-600">Name</label>
-                <p className="font-medium text-gray-900">{currentUser.firstName} {currentUser.lastName}</p>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600">Email</label>
-                <p className="font-medium text-gray-900">{currentUser.email}</p>
-              </div>
+            <div className="flex items-center gap-2 mb-2">
+              <User className="h-4 w-4 text-gray-600" />
+              <span className="text-sm font-medium text-gray-700">Your Information</span>
             </div>
+            <p className="text-gray-900">{currentUser.firstName} {currentUser.lastName}</p>
+            <p className="text-gray-600 text-sm">{currentUser.email}</p>
           </div>
 
-          {/* Issue Category */}
+          {/* Category Selection */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-              <Tag className="h-4 w-4" />
-              Issue Category *
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              What type of issue are you experiencing? *
             </label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {issueCategories.map((category) => (
                 <button
                   key={category.value}
                   type="button"
                   onClick={() => handleInputChange('category', category.value)}
-                  className={`p-3 rounded-lg border-2 text-left transition-all hover:shadow-md ${
+                  className={`p-3 rounded-lg border text-left transition-colors ${
                     formData.category === category.value
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{category.icon}</span>
-                    <span className="text-sm font-medium">{category.label}</span>
-                  </div>
+                  <div className="font-medium text-gray-900">{category.label}</div>
+                  <div className="text-sm text-gray-600">{category.description}</div>
                 </button>
               ))}
             </div>
             {errors.category && (
-              <p className="mt-1 text-sm text-red-600">{errors.category}</p>
+              <p className="mt-2 text-sm text-red-600">{errors.category}</p>
             )}
           </div>
 
           {/* Title */}
           <div className="mb-6">
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Issue Title *
+            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+              Brief summary of your issue *
             </label>
             <input
               type="text"
               id="title"
               value={formData.title}
               onChange={(e) => handleInputChange('title', e.target.value)}
-              placeholder="Brief description of your issue..."
-              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+              placeholder="e.g., Cannot log into my account"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                 errors.title ? 'border-red-300' : 'border-gray-300'
               }`}
               disabled={isSubmitting}
@@ -226,71 +200,68 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
           {/* Description */}
           <div className="mb-6">
             <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-              Detailed Description *
+              Please describe your issue in detail *
             </label>
             <textarea
               id="description"
-              rows={6}
+              rows={5}
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
-              placeholder="Please provide detailed information about your issue:
-• What were you trying to do?
-• What happened instead?
-• When did this start occurring?
-• Any error messages you received?
-• Steps to reproduce the issue..."
-              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none ${
+              placeholder="Please include:
+• What you were trying to do
+• What happened instead
+• When this started
+• Any error messages"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
                 errors.description ? 'border-red-300' : 'border-gray-300'
               }`}
               disabled={isSubmitting}
             />
-            <div className="flex justify-between items-center mt-1">
-              {errors.description ? (
-                <p className="text-sm text-red-600">{errors.description}</p>
-              ) : (
-                <p className="text-sm text-gray-500">
-                  {formData.description.length}/500 characters
-                </p>
-              )}
-            </div>
+            {errors.description && (
+              <p className="mt-1 text-sm text-red-600">{errors.description}</p>
+            )}
           </div>
 
-          {/* Urgency Level */}
+          {/* Urgency */}
           <div className="mb-8">
-            <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-              <Zap className="h-4 w-4" />
-              Urgency Level *
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              How urgent is this issue? *
             </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-2">
               {urgencyLevels.map((level) => (
                 <button
                   key={level.value}
                   type="button"
                   onClick={() => handleInputChange('problemLevel', level.value)}
-                  className={`p-4 rounded-lg border-2 text-left transition-all hover:shadow-md ${
+                  className={`w-full p-3 rounded-lg border text-left transition-colors ${
                     formData.problemLevel === level.value
-                      ? `border-current ${level.color}`
+                      ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <div className="flex items-start gap-3">
-                    <span className="text-xl">{level.icon}</span>
+                  <div className="flex justify-between items-start">
                     <div>
                       <div className="font-medium text-gray-900">{level.label}</div>
-                      <div className="text-sm text-gray-600 mt-1">{level.description}</div>
+                      <div className="text-sm text-gray-600">{level.description}</div>
+                      <div className="text-xs text-gray-500 mt-1">Example: {level.example}</div>
                     </div>
+                    {formData.problemLevel === level.value && (
+                      <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      </div>
+                    )}
                   </div>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Submit Button */}
+          {/* Submit */}
           <div className="flex gap-3 pt-4 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-medium transition-colors"
+              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors"
               disabled={isSubmitting}
             >
               Cancel
@@ -298,16 +269,16 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   Creating...
                 </>
               ) : (
                 <>
-                  <Save className="h-5 w-5" />
+                  <Save className="h-4 w-4" />
                   Create Ticket
                 </>
               )}

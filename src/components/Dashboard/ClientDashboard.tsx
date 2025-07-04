@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Ticket, Plus, Search, Filter, Eye, Clock, AlertTriangle, CheckCircle, MessageSquare, FileText, User, Calendar } from 'lucide-react';
+import { Ticket, Plus, Search, Filter, Eye, Clock, AlertTriangle, CheckCircle, MessageSquare, FileText, User, Calendar, Phone, Mail, HelpCircle } from 'lucide-react';
 import { User as UserType } from '../../types/user';
 import { Ticket as TicketType, TicketStatus, ProblemLevel } from '../../types/ticket';
 import { CreateTicketModal } from '../Tickets/CreateTicketModal';
@@ -19,55 +19,65 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
   const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<TicketStatus | 'all'>('all');
-  const [urgencyFilter, setUrgencyFilter] = useState<ProblemLevel | 'all'>('all');
 
-  const getStatusColor = (status: TicketStatus) => {
-    switch (status) {
-      case 'open': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'unassigned': return 'bg-gray-100 text-gray-800 border-gray-200';
-      case 'in-progress': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'resolved': return 'bg-green-100 text-green-800 border-green-200';
-      case 'closed': return 'bg-gray-100 text-gray-600 border-gray-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
+  const getStatusInfo = (status: TicketStatus) => {
+    const statusMap = {
+      'open': { 
+        color: 'bg-blue-50 text-blue-700 border-blue-200', 
+        icon: Clock, 
+        label: 'Open',
+        description: 'Your ticket has been received and is awaiting assignment'
+      },
+      'unassigned': { 
+        color: 'bg-orange-50 text-orange-700 border-orange-200', 
+        icon: AlertTriangle, 
+        label: 'Pending Assignment',
+        description: 'We\'re finding the right specialist for your issue'
+      },
+      'in-progress': { 
+        color: 'bg-yellow-50 text-yellow-700 border-yellow-200', 
+        icon: MessageSquare, 
+        label: 'In Progress',
+        description: 'Our team is actively working on your issue'
+      },
+      'resolved': { 
+        color: 'bg-green-50 text-green-700 border-green-200', 
+        icon: CheckCircle, 
+        label: 'Resolved',
+        description: 'Your issue has been resolved'
+      },
+      'closed': { 
+        color: 'bg-gray-50 text-gray-700 border-gray-200', 
+        icon: CheckCircle, 
+        label: 'Closed',
+        description: 'Ticket has been completed and closed'
+      }
+    };
+    return statusMap[status] || statusMap['open'];
   };
 
-  const getUrgencyColor = (level: ProblemLevel) => {
-    switch (level) {
-      case 'critical': return 'bg-red-100 text-red-800 border-red-200';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-green-100 text-green-800 border-green-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getStatusIcon = (status: TicketStatus) => {
-    switch (status) {
-      case 'open': return <Clock className="h-4 w-4" />;
-      case 'unassigned': return <AlertTriangle className="h-4 w-4" />;
-      case 'in-progress': return <MessageSquare className="h-4 w-4" />;
-      case 'resolved': return <CheckCircle className="h-4 w-4" />;
-      case 'closed': return <CheckCircle className="h-4 w-4" />;
-      default: return <Clock className="h-4 w-4" />;
-    }
+  const getUrgencyInfo = (level: ProblemLevel) => {
+    const urgencyMap = {
+      'low': { color: 'bg-green-50 text-green-700 border-green-200', label: 'Low Priority' },
+      'medium': { color: 'bg-yellow-50 text-yellow-700 border-yellow-200', label: 'Medium Priority' },
+      'high': { color: 'bg-orange-50 text-orange-700 border-orange-200', label: 'High Priority' },
+      'critical': { color: 'bg-red-50 text-red-700 border-red-200', label: 'Critical' }
+    };
+    return urgencyMap[level] || urgencyMap['medium'];
   };
 
   const filteredTickets = tickets.filter(ticket => {
     const matchesSearch = ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ticket.description.toLowerCase().includes(searchTerm.toLowerCase());
+                         ticket.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter;
-    const matchesUrgency = urgencyFilter === 'all' || ticket.problemLevel === urgencyFilter;
-    return matchesSearch && matchesStatus && matchesUrgency;
+    return matchesSearch && matchesStatus;
   });
 
   const ticketStats = {
     total: tickets.length,
-    open: tickets.filter(t => t.status === 'open' || t.status === 'unassigned').length,
-    inProgress: tickets.filter(t => t.status === 'in-progress').length,
-    resolved: tickets.filter(t => t.status === 'resolved' || t.status === 'closed').length,
-    critical: tickets.filter(t => t.problemLevel === 'critical' && t.status !== 'resolved' && t.status !== 'closed').length
+    active: tickets.filter(t => !['resolved', 'closed'].includes(t.status)).length,
+    resolved: tickets.filter(t => ['resolved', 'closed'].includes(t.status)).length,
+    urgent: tickets.filter(t => ['high', 'critical'].includes(t.problemLevel) && !['resolved', 'closed'].includes(t.status)).length
   };
 
   const handleCreateTicket = (ticketData: Partial<TicketType>) => {
@@ -88,7 +98,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
           userId: user.id,
           userName: `${user.firstName} ${user.lastName}`,
           action: 'created',
-          description: 'Ticket created by client',
+          description: 'Ticket submitted by client',
           timestamp: new Date()
         }
       ]
@@ -107,252 +117,217 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
+      {/* Simplified Header */}
+      <header className="bg-white shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
               <div className="bg-blue-100 p-2 rounded-lg">
                 <Ticket className="h-6 w-6 text-blue-600" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">Client Portal</h1>
-                <p className="text-sm text-gray-600">Manage your support tickets</p>
+                <h1 className="text-xl font-bold text-gray-900">Support Portal</h1>
+                <p className="text-sm text-gray-600">Welcome back, {user.firstName}</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">
-                Welcome, {user.firstName} {user.lastName}
-              </span>
-              <button
-                onClick={onLogout}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                Sign Out
-              </button>
-            </div>
+            <button
+              onClick={onLogout}
+              className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm"
+            >
+              Sign Out
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 rounded-lg bg-blue-100">
-                <Ticket className="h-5 w-5 text-blue-600" />
-              </div>
-              <h3 className="font-medium text-gray-900">Total Tickets</h3>
-            </div>
-            <p className="text-3xl font-bold text-gray-900">{ticketStats.total}</p>
-            <p className="text-sm text-gray-600 mt-1">All time</p>
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        {/* Quick Overview Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white rounded-lg p-4 shadow-sm">
+            <div className="text-2xl font-bold text-gray-900">{ticketStats.total}</div>
+            <div className="text-sm text-gray-600">Total Tickets</div>
           </div>
-
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 rounded-lg bg-yellow-100">
-                <Clock className="h-5 w-5 text-yellow-600" />
-              </div>
-              <h3 className="font-medium text-gray-900">Open Tickets</h3>
-            </div>
-            <p className="text-3xl font-bold text-gray-900">{ticketStats.open}</p>
-            <p className="text-sm text-gray-600 mt-1">Awaiting response</p>
+          <div className="bg-white rounded-lg p-4 shadow-sm">
+            <div className="text-2xl font-bold text-blue-600">{ticketStats.active}</div>
+            <div className="text-sm text-gray-600">Active</div>
           </div>
-
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 rounded-lg bg-orange-100">
-                <MessageSquare className="h-5 w-5 text-orange-600" />
-              </div>
-              <h3 className="font-medium text-gray-900">In Progress</h3>
-            </div>
-            <p className="text-3xl font-bold text-gray-900">{ticketStats.inProgress}</p>
-            <p className="text-sm text-gray-600 mt-1">Being worked on</p>
+          <div className="bg-white rounded-lg p-4 shadow-sm">
+            <div className="text-2xl font-bold text-green-600">{ticketStats.resolved}</div>
+            <div className="text-sm text-gray-600">Resolved</div>
           </div>
-
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 rounded-lg bg-green-100">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              </div>
-              <h3 className="font-medium text-gray-900">Resolved</h3>
-            </div>
-            <p className="text-3xl font-bold text-gray-900">{ticketStats.resolved}</p>
-            <p className="text-sm text-gray-600 mt-1">Completed</p>
+          <div className="bg-white rounded-lg p-4 shadow-sm">
+            <div className="text-2xl font-bold text-orange-600">{ticketStats.urgent}</div>
+            <div className="text-sm text-gray-600">Urgent</div>
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">Quick Actions</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <button 
+        {/* Main Action */}
+        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 mb-8 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold mb-2">Need Help?</h2>
+              <p className="text-blue-100">Create a support ticket and our team will assist you</p>
+            </div>
+            <button
               onClick={() => setShowCreateTicket(true)}
-              className="bg-blue-50 hover:bg-blue-100 text-blue-700 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors group"
+              className="bg-white text-blue-600 px-6 py-3 rounded-lg font-medium hover:bg-blue-50 transition-colors flex items-center gap-2"
             >
-              <Plus className="h-6 w-6 group-hover:scale-110 transition-transform" />
-              <span className="text-sm font-medium">Create New Ticket</span>
-            </button>
-            <button className="bg-green-50 hover:bg-green-100 text-green-700 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors group">
-              <Search className="h-6 w-6 group-hover:scale-110 transition-transform" />
-              <span className="text-sm font-medium">Search Tickets</span>
-            </button>
-            <button className="bg-purple-50 hover:bg-purple-100 text-purple-700 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors group">
-              <FileText className="h-6 w-6 group-hover:scale-110 transition-transform" />
-              <span className="text-sm font-medium">View History</span>
-            </button>
-            <button className="bg-orange-50 hover:bg-orange-100 text-orange-700 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors group">
-              <User className="h-6 w-6 group-hover:scale-110 transition-transform" />
-              <span className="text-sm font-medium">Contact Support</span>
+              <Plus className="h-5 w-5" />
+              New Ticket
             </button>
           </div>
         </div>
 
         {/* Tickets Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="bg-white rounded-xl shadow-sm">
           <div className="p-6 border-b border-gray-200">
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">My Support Tickets</h2>
-              <button
-                onClick={() => setShowCreateTicket(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                New Ticket
-              </button>
-            </div>
-            
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search tickets by title, ID, or description..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">Your Support Tickets</h2>
+              
+              {/* Simple Filters */}
+              <div className="flex gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search tickets..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                </div>
+                
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as TicketStatus | 'all')}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                >
+                  <option value="all">All Tickets</option>
+                  <option value="open">Open</option>
+                  <option value="unassigned">Pending</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="resolved">Resolved</option>
+                </select>
               </div>
-              
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as TicketStatus | 'all')}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">All Status</option>
-                <option value="open">Open</option>
-                <option value="unassigned">Unassigned</option>
-                <option value="in-progress">In Progress</option>
-                <option value="resolved">Resolved</option>
-                <option value="closed">Closed</option>
-              </select>
-              
-              <select
-                value={urgencyFilter}
-                onChange={(e) => setUrgencyFilter(e.target.value as ProblemLevel | 'all')}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">All Urgency</option>
-                <option value="critical">Critical</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
             </div>
           </div>
 
           {/* Tickets List */}
           <div className="divide-y divide-gray-200">
             {filteredTickets.length > 0 ? (
-              filteredTickets.map((ticket) => (
-                <div key={ticket.id} className="p-6 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="font-medium text-gray-900">{ticket.id}</span>
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(ticket.status)}`}>
-                          {getStatusIcon(ticket.status)}
-                          {ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1).replace('-', ' ')}
-                        </span>
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${getUrgencyColor(ticket.problemLevel)}`}>
-                          {ticket.problemLevel.charAt(0).toUpperCase() + ticket.problemLevel.slice(1)}
-                        </span>
+              filteredTickets.map((ticket) => {
+                const statusInfo = getStatusInfo(ticket.status);
+                const urgencyInfo = getUrgencyInfo(ticket.problemLevel);
+                const StatusIcon = statusInfo.icon;
+                
+                return (
+                  <div key={ticket.id} className="p-6 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        {/* Ticket Header */}
+                        <div className="flex items-center gap-3 mb-3">
+                          <span className="font-mono text-sm font-medium text-gray-600">{ticket.id}</span>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${statusInfo.color}`}>
+                            <StatusIcon className="h-3 w-3" />
+                            {statusInfo.label}
+                          </span>
+                          <span className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full border ${urgencyInfo.color}`}>
+                            {urgencyInfo.label}
+                          </span>
+                        </div>
+                        
+                        {/* Ticket Content */}
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">{ticket.title}</h3>
+                        <p className="text-gray-600 mb-3 line-clamp-2">{ticket.description}</p>
+                        
+                        {/* Status Description */}
+                        <p className="text-sm text-gray-500 mb-3">{statusInfo.description}</p>
+                        
+                        {/* Ticket Meta */}
+                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                          <span>Created {ticket.submittedDate.toLocaleDateString()}</span>
+                          <span>•</span>
+                          <span>Updated {ticket.lastUpdated.toLocaleDateString()}</span>
+                          {ticket.assignedToName && (
+                            <>
+                              <span>•</span>
+                              <span>Assigned to {ticket.assignedToName}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                       
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">{ticket.title}</h3>
-                      <p className="text-gray-600 mb-3 line-clamp-2">{ticket.description}</p>
-                      
-                      <div className="flex items-center gap-6 text-sm text-gray-500">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          <span>Created: {ticket.submittedDate.toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4" />
-                          <span>Updated: {ticket.lastUpdated.toLocaleDateString()}</span>
-                        </div>
-                        {ticket.assignedToName && (
-                          <div className="flex items-center gap-1">
-                            <User className="h-4 w-4" />
-                            <span>Assigned to: {ticket.assignedToName}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="ml-4 flex flex-col gap-2">
+                      {/* Action Button */}
                       <button
                         onClick={() => setSelectedTicket(ticket)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                        className="ml-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                       >
                         <Eye className="h-4 w-4" />
-                        View Details
+                        View
                       </button>
-                      {ticket.status === 'resolved' && (
-                        <span className="text-xs text-green-600 text-center">
-                          ✓ Resolved
-                        </span>
-                      )}
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="text-center py-12">
                 {tickets.length === 0 ? (
-                  <>
-                    <Ticket className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500 text-lg mb-2">No tickets yet</p>
-                    <p className="text-sm text-gray-400 mb-6">
-                      Create your first support ticket to get started
-                    </p>
+                  <div>
+                    <Ticket className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No tickets yet</h3>
+                    <p className="text-gray-500 mb-6">Create your first support ticket to get help from our team</p>
                     <button
                       onClick={() => setShowCreateTicket(true)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 mx-auto"
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors inline-flex items-center gap-2"
                     >
                       <Plus className="h-5 w-5" />
-                      Create Your First Ticket
+                      Create First Ticket
                     </button>
-                  </>
+                  </div>
                 ) : (
-                  <>
-                    <Filter className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">No tickets match your search criteria</p>
-                    <p className="text-sm text-gray-400 mt-1">
-                      Try adjusting your search terms or filters
-                    </p>
-                  </>
+                  <div>
+                    <Filter className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No matching tickets</h3>
+                    <p className="text-gray-500">Try adjusting your search or filter</p>
+                  </div>
                 )}
               </div>
             )}
           </div>
         </div>
+
+        {/* Help Section */}
+        <div className="mt-8 bg-gray-100 rounded-xl p-6">
+          <div className="flex items-start gap-4">
+            <div className="bg-blue-100 p-2 rounded-lg">
+              <HelpCircle className="h-6 w-6 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-medium text-gray-900 mb-2">Need immediate assistance?</h3>
+              <p className="text-gray-600 mb-4">For urgent issues, you can contact our support team directly</p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <a
+                  href="mailto:support@sealkloud.com"
+                  className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  <Mail className="h-4 w-4" />
+                  support@sealkloud.com
+                </a>
+                <a
+                  href="tel:+1-555-123-4567"
+                  className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  <Phone className="h-4 w-4" />
+                  +1 (555) 123-4567
+                </a>
+              </div>
+              <p className="text-sm text-gray-500 mt-2">Support hours: Monday-Friday, 9AM-6PM EST</p>
+            </div>
+          </div>
+        </div>
       </main>
 
-      {/* Create Ticket Modal */}
+      {/* Modals */}
       <CreateTicketModal
         isOpen={showCreateTicket}
         onClose={() => setShowCreateTicket(false)}
@@ -360,7 +335,6 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
         currentUser={user}
       />
 
-      {/* Ticket Detail Modal */}
       {selectedTicket && (
         <TicketDetailModal
           ticket={selectedTicket}

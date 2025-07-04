@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Users, Ticket, BarChart3, Settings, TrendingUp, Clock, AlertTriangle, Activity, Database, Server, Eye, Filter } from 'lucide-react';
+import { Shield, Users, Ticket, BarChart3, Settings, TrendingUp, Clock, AlertTriangle, Activity, Database, Server, Eye, Filter, Key, Webhook, Zap, FileText, ShieldCheck } from 'lucide-react';
 import { User } from '../../types/user';
 import { TicketStatsCard } from './TicketStatsCard';
 import { ClientTicketChart } from './ClientTicketChart';
@@ -10,6 +10,13 @@ import { ThemeToggle } from '../ThemeToggle';
 import { NotificationCenter, Notification } from '../NotificationCenter';
 import { SearchBar, SearchFilter, SearchSuggestion } from '../SearchBar';
 import { ChatSupport } from '../ChatSupport';
+import { TwoFactorAuth } from '../Auth/TwoFactorAuth';
+import { AuditLogViewer } from '../Admin/AuditLogViewer';
+import { RoleManagement } from '../Admin/RoleManagement';
+import { ReportScheduler } from '../Admin/ReportScheduler';
+import { CustomDashboard } from './CustomDashboard';
+import { WorkflowAutomation } from '../Admin/WorkflowAutomation';
+import { ApiWebhookSupport } from '../Admin/ApiWebhookSupport';
 
 interface AdminDashboardProps {
   user: User;
@@ -43,6 +50,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
     }
   ]);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  
+  // Phase 2 Component States
+  const [showTwoFactorAuth, setShowTwoFactorAuth] = useState(false);
+  const [showAuditLog, setShowAuditLog] = useState(false);
+  const [showRoleManagement, setShowRoleManagement] = useState(false);
+  const [showReportScheduler, setShowReportScheduler] = useState(false);
+  const [showCustomDashboard, setShowCustomDashboard] = useState(false);
+  const [showWorkflowAutomation, setShowWorkflowAutomation] = useState(false);
+  const [showApiWebhookSupport, setShowApiWebhookSupport] = useState(false);
   
   const ticketStats = getTicketStats();
   const clientData = getClientTicketData();
@@ -351,7 +367,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
         {/* Quick Actions */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 mb-8">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Quick Actions</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             <button 
               onClick={() => setShowUserManagement(true)}
               className="bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
@@ -367,9 +383,61 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
               <Settings className="h-6 w-6" />
               <span className="text-sm font-medium">Settings</span>
             </button>
-            <button className="bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-700 dark:text-orange-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors">
+            <button 
+              onClick={() => setShowAuditLog(true)}
+              className="bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-700 dark:text-orange-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
+            >
               <Eye className="h-6 w-6" />
               <span className="text-sm font-medium">Audit Log</span>
+            </button>
+            <button 
+              onClick={() => setShowRoleManagement(true)}
+              className="bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
+            >
+              <ShieldCheck className="h-6 w-6" />
+              <span className="text-sm font-medium">Roles</span>
+            </button>
+            <button 
+              onClick={() => setShowCustomDashboard(true)}
+              className="bg-teal-50 dark:bg-teal-900/20 hover:bg-teal-100 dark:hover:bg-teal-900/30 text-teal-700 dark:text-teal-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
+            >
+              <BarChart3 className="h-6 w-6" />
+              <span className="text-sm font-medium">Custom Dashboard</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Phase 2 Advanced Features */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Advanced Features</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <button 
+              onClick={() => setShowTwoFactorAuth(true)}
+              className="bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-700 dark:text-red-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
+            >
+              <ShieldCheck className="h-6 w-6" />
+              <span className="text-sm font-medium">2FA Setup</span>
+            </button>
+            <button 
+              onClick={() => setShowReportScheduler(true)}
+              className="bg-yellow-50 dark:bg-yellow-900/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
+            >
+              <FileText className="h-6 w-6" />
+              <span className="text-sm font-medium">Report Scheduler</span>
+            </button>
+            <button 
+              onClick={() => setShowWorkflowAutomation(true)}
+              className="bg-pink-50 dark:bg-pink-900/20 hover:bg-pink-100 dark:hover:bg-pink-900/30 text-pink-700 dark:text-pink-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
+            >
+              <Zap className="h-6 w-6" />
+              <span className="text-sm font-medium">Workflow Automation</span>
+            </button>
+            <button 
+              onClick={() => setShowApiWebhookSupport(true)}
+              className="bg-cyan-50 dark:bg-cyan-900/20 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
+            >
+              <Webhook className="h-6 w-6" />
+              <span className="text-sm font-medium">API & Webhooks</span>
             </button>
           </div>
         </div>
@@ -403,6 +471,125 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
         onClose={() => setShowUserManagement(false)}
         currentUser={user}
       />
+
+      {/* Phase 2 Modals */}
+      {showTwoFactorAuth && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
+            <TwoFactorAuth 
+              isOpen={showTwoFactorAuth}
+              onClose={() => setShowTwoFactorAuth(false)}
+              onSuccess={() => {
+                setShowTwoFactorAuth(false);
+                // Add success notification here
+              }}
+              userId={user.id}
+            />
+          </div>
+        </div>
+      )}
+
+      {showAuditLog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Audit Log</h2>
+              <button
+                onClick={() => setShowAuditLog(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+            <AuditLogViewer />
+          </div>
+        </div>
+      )}
+
+      {showRoleManagement && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Role Management</h2>
+              <button
+                onClick={() => setShowRoleManagement(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+            <RoleManagement />
+          </div>
+        </div>
+      )}
+
+      {showReportScheduler && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Report Scheduler</h2>
+              <button
+                onClick={() => setShowReportScheduler(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+            <ReportScheduler />
+          </div>
+        </div>
+      )}
+
+      {showCustomDashboard && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Custom Dashboard</h2>
+              <button
+                onClick={() => setShowCustomDashboard(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+            <CustomDashboard />
+          </div>
+        </div>
+      )}
+
+      {showWorkflowAutomation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Workflow Automation</h2>
+              <button
+                onClick={() => setShowWorkflowAutomation(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+            <WorkflowAutomation />
+          </div>
+        </div>
+      )}
+
+      {showApiWebhookSupport && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">API & Webhook Management</h2>
+              <button
+                onClick={() => setShowApiWebhookSupport(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+            <ApiWebhookSupport />
+          </div>
+        </div>
+      )}
 
       {/* Chat Support */}
       <ChatSupport

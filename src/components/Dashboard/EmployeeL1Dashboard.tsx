@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { Users, Ticket, Clock, CheckCircle, AlertTriangle, Plus, Search, MessageSquare, User, ArrowRight, Eye, Play, CheckSquare } from 'lucide-react';
+import { Users, Ticket, Clock, CheckCircle, AlertTriangle, Plus, Search, MessageSquare, User, ArrowRight, Eye, Play, CheckSquare, BarChart3, Zap, BookOpen, Settings } from 'lucide-react';
 import { User as UserType } from '../../types/user';
 import { TicketStatsCard } from './TicketStatsCard';
 import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
 import { mockTickets, getTicketStats } from '../../data/mockTickets';
+import { EmployeePerformanceMetrics } from './EmployeePerformanceMetrics';
+import { QuickActionsPanel } from './QuickActionsPanel';
+import { EmployeeKnowledgeBase } from './EmployeeKnowledgeBase';
 
 interface EmployeeL1DashboardProps {
   user: UserType;
@@ -12,8 +15,13 @@ interface EmployeeL1DashboardProps {
 
 export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, onLogout }) => {
   const [tickets, setTickets] = useState(mockTickets);
-  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Phase 1 Enhancement States
+  const [showPerformanceMetrics, setShowPerformanceMetrics] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false);
+  const [showKnowledgeBase, setShowKnowledgeBase] = useState(false);
   
   // Filter tickets for L1 - basic tickets and unassigned
   const myTickets = tickets.filter(ticket => ticket.assignedTo === user.id);
@@ -65,6 +73,36 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
     });
   };
 
+  // Phase 1 Enhancement Handlers
+  const handleQuickAction = (action: string, data?: any) => {
+    console.log('Quick action:', action, data);
+    // Handle different quick actions
+    switch (action) {
+      case 'start-work':
+        // Handle start work action
+        break;
+      case 'resolve-ticket':
+        // Handle resolve ticket action
+        break;
+      case 'escalate-ticket':
+        // Handle escalate ticket action
+        break;
+      default:
+        console.log('Unknown action:', action);
+    }
+  };
+
+  const handleApplySolution = (solution: string) => {
+    if (selectedTicket) {
+      // Apply the solution to the current ticket
+      handleTicketUpdate(selectedTicket.id, {
+        description: `${selectedTicket.description}\n\nApplied Solution: ${solution}`,
+        lastUpdated: new Date()
+      });
+    }
+    setShowKnowledgeBase(false);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'open': return 'bg-blue-50 text-blue-700 border-blue-200';
@@ -106,12 +144,35 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                 <p className="text-sm text-gray-600">Welcome back, {user.firstName}</p>
               </div>
             </div>
-            <button
-              onClick={onLogout}
-              className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm"
-            >
-              Sign Out
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowPerformanceMetrics(true)}
+                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Performance Metrics"
+              >
+                <BarChart3 className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setShowQuickActions(true)}
+                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Quick Actions"
+              >
+                <Zap className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setShowKnowledgeBase(true)}
+                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Knowledge Base"
+              >
+                <BookOpen className="h-5 w-5" />
+              </button>
+              <button
+                onClick={onLogout}
+                className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm"
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -322,6 +383,38 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
           currentUser={user}
           availableUsers={availableUsers}
         />
+      )}
+
+      {/* Phase 1 Enhancement Modals */}
+      {showPerformanceMetrics && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <EmployeePerformanceMetrics
+            userId={user.id}
+            userRole="employee_l1"
+            onClose={() => setShowPerformanceMetrics(false)}
+          />
+        </div>
+      )}
+
+      {showQuickActions && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <QuickActionsPanel
+            userRole="employee_l1"
+            onAction={handleQuickAction}
+            onClose={() => setShowQuickActions(false)}
+          />
+        </div>
+      )}
+
+      {showKnowledgeBase && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <EmployeeKnowledgeBase
+            userRole="employee_l1"
+            currentTicket={selectedTicket}
+            onClose={() => setShowKnowledgeBase(false)}
+            onApplySolution={handleApplySolution}
+          />
+        </div>
       )}
     </div>
   );

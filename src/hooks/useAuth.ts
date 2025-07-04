@@ -63,12 +63,15 @@ export const useAuth = () => {
   // Check for existing session on mount
   useEffect(() => {
     const checkExistingSession = () => {
+      console.log('Checking for existing session...');
       try {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
           const userData = JSON.parse(stored);
+          console.log('Found stored user data:', userData);
           // Validate the stored data
-          if (userData && userData.id && userData.email) {
+          if (userData && userData.id && userData.email && userData.role) {
+            console.log('Restoring session for user:', userData.email);
             setAuthState({
               user: userData,
               isAuthenticated: true,
@@ -78,6 +81,7 @@ export const useAuth = () => {
             return;
           }
         }
+        console.log('No valid session found');
       } catch (error) {
         console.error('Error checking existing session:', error);
         localStorage.removeItem(STORAGE_KEY);
@@ -86,33 +90,42 @@ export const useAuth = () => {
       setAuthState(prev => ({ ...prev, isLoading: false }));
     };
 
-    checkExistingSession();
+    // Small delay to ensure proper initialization
+    const timer = setTimeout(checkExistingSession, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   const login = useCallback(async (credentials: LoginCredentials): Promise<void> => {
+    console.log('Login attempt for:', credentials.email);
     setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
       // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Normalize email for comparison
       const normalizedEmail = credentials.email.toLowerCase().trim();
+      console.log('Looking for user with email:', normalizedEmail);
       
       // Mock authentication - find user by email
       const user = mockUsers.find(u => u.email.toLowerCase() === normalizedEmail);
       
       if (!user) {
+        console.log('User not found');
         throw new Error('Invalid email or password');
       }
 
+      console.log('Found user:', user);
+
       if (!user.isActive) {
+        console.log('User account is deactivated');
         throw new Error('Account is deactivated. Please contact support.');
       }
 
       // In real implementation, verify password hash
       // For demo purposes, accept 'password123' for all accounts
       if (credentials.password !== 'password123') {
+        console.log('Invalid password');
         throw new Error('Invalid email or password');
       }
 
@@ -120,6 +133,8 @@ export const useAuth = () => {
         ...user, 
         lastLogin: new Date() 
       };
+
+      console.log('Authentication successful, storing user:', authenticatedUser);
 
       // Store in localStorage for persistence
       localStorage.setItem(STORAGE_KEY, JSON.stringify(authenticatedUser));
@@ -131,7 +146,7 @@ export const useAuth = () => {
         error: null,
       });
 
-      console.log('Login successful:', authenticatedUser);
+      console.log('Login successful, state updated');
     } catch (error) {
       console.error('Login error:', error);
       setAuthState(prev => ({
@@ -143,6 +158,7 @@ export const useAuth = () => {
   }, []);
 
   const logout = useCallback(() => {
+    console.log('Logging out...');
     localStorage.removeItem(STORAGE_KEY);
     setAuthState({
       user: null,

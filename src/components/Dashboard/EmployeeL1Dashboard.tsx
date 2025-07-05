@@ -3,7 +3,7 @@ import { Users, Ticket, Clock, CheckCircle, AlertTriangle, Plus, Search, Message
 import { User as UserType } from '../../types/user';
 import { TicketStatsCard } from './TicketStatsCard';
 import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
-import { mockTickets, getTicketStats } from '../../data/mockTickets';
+import { useTickets } from '../../contexts/TicketContext';
 import { EmployeePerformanceMetrics } from './EmployeePerformanceMetrics';
 import { QuickActionsPanel } from './QuickActionsPanel';
 import { EmployeeKnowledgeBase } from './EmployeeKnowledgeBase';
@@ -14,13 +14,14 @@ import { IntelligentCommunicationTools } from './IntelligentCommunicationTools';
 import { ThemeToggle } from './ThemeToggle';
 import { EmployeeTicketHistory } from './EmployeeTicketHistory';
 
+
 interface EmployeeL1DashboardProps {
   user: UserType;
   onLogout: () => void;
 }
 
 export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, onLogout }) => {
-  const [tickets, setTickets] = useState(mockTickets);
+  const { tickets, updateTicket } = useTickets();
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -54,9 +55,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   ];
 
   const handleTicketUpdate = (ticketId: string, updates: any) => {
-    setTickets(prev => prev.map(ticket => 
-      ticket.id === ticketId ? { ...ticket, ...updates } : ticket
-    ));
+    updateTicket(ticketId, updates);
     setSelectedTicket(null);
   };
 
@@ -244,6 +243,8 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
             <div className="text-sm text-gray-600 dark:text-gray-400">Available</div>
           </div>
         </div>
+
+
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Available Tickets - Left Column */}

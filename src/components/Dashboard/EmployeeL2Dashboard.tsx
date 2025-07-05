@@ -3,7 +3,7 @@ import { Settings, Ticket, Clock, CheckCircle, AlertTriangle, Zap, Search, Messa
 import { User as UserType } from '../../types/user';
 import { TicketStatsCard } from './TicketStatsCard';
 import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
-import { mockTickets, getTicketStats } from '../../data/mockTickets';
+import { useTickets } from '../../contexts/TicketContext';
 import { EmployeePerformanceMetrics } from './EmployeePerformanceMetrics';
 import { QuickActionsPanel } from './QuickActionsPanel';
 import { EmployeeKnowledgeBase } from './EmployeeKnowledgeBase';
@@ -20,7 +20,7 @@ interface EmployeeL2DashboardProps {
 }
 
 export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, onLogout }) => {
-  const [tickets, setTickets] = useState(mockTickets);
+  const { tickets, updateTicket } = useTickets();
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -54,9 +54,7 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
   ];
 
   const handleTicketUpdate = (ticketId: string, updates: any) => {
-    setTickets(prev => prev.map(ticket => 
-      ticket.id === ticketId ? { ...ticket, ...updates } : ticket
-    ));
+    updateTicket(ticketId, updates);
     setSelectedTicket(null);
   };
 

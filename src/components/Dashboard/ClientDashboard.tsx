@@ -4,7 +4,7 @@ import { User as UserType } from '../../types/user';
 import { Ticket as TicketType, TicketStatus, ProblemLevel } from '../../types/ticket';
 import { CreateTicketModal } from '../Tickets/CreateTicketModal';
 import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
-import { mockTickets } from '../../data/mockTickets';
+import { useTickets } from '../../contexts/TicketContext';
 import { ThemeToggle } from '../ThemeToggle';
 import { NotificationCenter, Notification } from '../NotificationCenter';
 import { SearchBar, SearchFilter } from '../SearchBar';
@@ -21,13 +21,16 @@ interface ClientDashboardProps {
 }
 
 export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout }) => {
-  const [tickets, setTickets] = useState<TicketType[]>(
-    mockTickets.filter(ticket => ticket.clientId === user.id || ticket.clientName === `${user.firstName} ${user.lastName}`)
-  );
+  const { tickets, addTicket, updateTicket } = useTickets();
   const [showCreateTicket, setShowCreateTicket] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<TicketStatus | 'all'>('all');
+  
+  // Filter tickets for this client
+  const clientTickets = tickets.filter(ticket => 
+    ticket.clientId === user.id || ticket.clientName === `${user.firstName} ${user.lastName}`
+  );
   
   // Phase 1 Enhancement States
   const [notifications, setNotifications] = useState<Notification[]>([
@@ -108,7 +111,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
     return urgencyMap[level] || urgencyMap['medium'];
   };
 
-  const filteredTickets = tickets.filter(ticket => {
+  const filteredTickets = clientTickets.filter(ticket => {
     const matchesSearch = ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          ticket.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter;
@@ -116,10 +119,10 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
   });
 
   const ticketStats = {
-    total: tickets.length,
-    active: tickets.filter(t => !['resolved', 'closed'].includes(t.status)).length,
-    resolved: tickets.filter(t => ['resolved', 'closed'].includes(t.status)).length,
-    urgent: tickets.filter(t => ['high', 'critical'].includes(t.problemLevel) && !['resolved', 'closed'].includes(t.status)).length
+    total: clientTickets.length,
+    active: clientTickets.filter(t => !['resolved', 'closed'].includes(t.status)).length,
+    resolved: clientTickets.filter(t => ['resolved', 'closed'].includes(t.status)).length,
+    urgent: clientTickets.filter(t => ['high', 'critical'].includes(t.problemLevel) && !['resolved', 'closed'].includes(t.status)).length
   };
 
   const handleCreateTicket = (ticketData: Partial<TicketType>) => {
@@ -146,14 +149,12 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
       ]
     };
 
-    setTickets(prev => [newTicket, ...prev]);
+    addTicket(newTicket);
     setShowCreateTicket(false);
   };
 
   const handleTicketUpdate = (ticketId: string, updates: Partial<TicketType>) => {
-    setTickets(prev => prev.map(ticket => 
-      ticket.id === ticketId ? { ...ticket, ...updates } : ticket
-    ));
+    updateTicket(ticketId, updates);
     setSelectedTicket(null);
   };
 

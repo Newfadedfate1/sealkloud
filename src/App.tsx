@@ -6,6 +6,7 @@ import { AdminDashboard } from './components/Dashboard/AdminDashboard';
 import { useAuth } from './hooks/useAuth';
 import { ThemeProvider } from './components/ThemeProvider';
 
+
 function App() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
 

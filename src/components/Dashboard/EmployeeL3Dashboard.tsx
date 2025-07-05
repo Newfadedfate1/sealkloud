@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Zap, Ticket, Clock, CheckCircle, AlertTriangle, Shield, Search, MessageSquare, Database, Server, Code, Eye, CheckSquare, BarChart3, BookOpen } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Zap, Ticket, Clock, CheckCircle, AlertTriangle, Shield, Search, MessageSquare, Database, Server, Code, Eye, CheckSquare, BarChart3, BookOpen, Plus, Brain, Settings } from 'lucide-react';
 import { User as UserType } from '../../types/user';
 import { TicketStatsCard } from './TicketStatsCard';
 import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
@@ -7,6 +7,10 @@ import { mockTickets, getTicketStats } from '../../data/mockTickets';
 import { EmployeePerformanceMetrics } from './EmployeePerformanceMetrics';
 import { QuickActionsPanel } from './QuickActionsPanel';
 import { EmployeeKnowledgeBase } from './EmployeeKnowledgeBase';
+import { AITicketAssistant } from './AITicketAssistant';
+import { SmartWorkflowAutomation } from './SmartWorkflowAutomation';
+import { AdvancedAnalyticsDashboard } from './AdvancedAnalyticsDashboard';
+import { IntelligentCommunicationTools } from './IntelligentCommunicationTools';
 
 interface EmployeeL3DashboardProps {
   user: UserType;
@@ -22,6 +26,10 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
   const [showPerformanceMetrics, setShowPerformanceMetrics] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [showKnowledgeBase, setShowKnowledgeBase] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [showWorkflowAutomation, setShowWorkflowAutomation] = useState(false);
+  const [showAdvancedAnalytics, setShowAdvancedAnalytics] = useState(false);
+  const [showCommunicationTools, setShowCommunicationTools] = useState(false);
   
   // Filter tickets for L3 - critical issues and complex problems
   const myTickets = tickets.filter(ticket => ticket.assignedTo === user.id);
@@ -157,6 +165,34 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                 title="Knowledge Base"
               >
                 <BookOpen className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setShowAIAssistant(true)}
+                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="AI Assistant"
+              >
+                <Brain className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setShowWorkflowAutomation(true)}
+                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Workflow Automation"
+              >
+                <Zap className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setShowAdvancedAnalytics(true)}
+                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Advanced Analytics"
+              >
+                <BarChart3 className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setShowCommunicationTools(true)}
+                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Communication Tools"
+              >
+                <MessageSquare className="h-5 w-5" />
               </button>
               <button
                 onClick={onLogout}
@@ -460,6 +496,70 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
             onApplySolution={handleApplySolution}
           />
         </div>
+      )}
+
+      {showAIAssistant && selectedTicket && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <AITicketAssistant
+            ticket={selectedTicket}
+            userRole="employee_l3"
+            onApplyAnalysis={(analysis) => {
+              console.log('Applied AI analysis:', analysis);
+              setShowAIAssistant(false);
+            }}
+            onApplyResponse={(response) => {
+              console.log('Applied AI response:', response);
+              setShowAIAssistant(false);
+            }}
+            onClose={() => setShowAIAssistant(false)}
+          />
+        </div>
+      )}
+
+      {showWorkflowAutomation && selectedTicket && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <SmartWorkflowAutomation
+            ticket={selectedTicket}
+            availableUsers={availableUsers}
+            userRole="employee_l3"
+            onApplyWorkflow={(workflow) => {
+              console.log('Applied workflow:', workflow);
+              setShowWorkflowAutomation(false);
+            }}
+            onAutoAssign={(assignee) => {
+              console.log('Auto-assigned to:', assignee);
+              setShowWorkflowAutomation(false);
+            }}
+            onClose={() => setShowWorkflowAutomation(false)}
+          />
+        </div>
+      )}
+
+      {showAdvancedAnalytics && (
+        <AdvancedAnalyticsDashboard
+          userRole="employee_l3"
+          userId={user.id}
+          onClose={() => setShowAdvancedAnalytics(false)}
+          onExportData={(data) => {
+            console.log('Exported analytics data:', data);
+          }}
+        />
+      )}
+
+      {showCommunicationTools && selectedTicket && (
+        <IntelligentCommunicationTools
+          ticket={selectedTicket}
+          userRole="employee_l3"
+          onSendMessage={(message, type) => {
+            console.log('Sent message:', message, type);
+            setShowCommunicationTools(false);
+          }}
+          onScheduleFollowUp={(date, message) => {
+            console.log('Scheduled follow-up:', date, message);
+            setShowCommunicationTools(false);
+          }}
+          onClose={() => setShowCommunicationTools(false)}
+        />
       )}
     </div>
   );

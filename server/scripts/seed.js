@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { pool } from '../config/database.js';
+import { pool, initializeDatabase } from '../config/database.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -239,6 +239,7 @@ const activities = [
 ];
 
 async function seedDatabase() {
+  await initializeDatabase();
   const client = await pool.connect();
   
   try {
@@ -294,6 +295,18 @@ async function seedDatabase() {
         VALUES ($1, $2, $3, $4)
       `, [activity.ticketId, activity.userId, activity.action, activity.description]);
     }
+    
+    // Create ticket_chats table if not exists
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ticket_chats (
+        id SERIAL PRIMARY KEY,
+        ticket_id VARCHAR(50) NOT NULL,
+        sender_id INTEGER NOT NULL,
+        sender_role VARCHAR(20) NOT NULL,
+        message TEXT NOT NULL,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
     
     console.log('✅ Database seeding completed successfully!');
     console.log('\n📊 Seeded Data Summary:');

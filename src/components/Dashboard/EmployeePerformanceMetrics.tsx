@@ -199,7 +199,7 @@ export const EmployeePerformanceMetrics: React.FC<EmployeePerformanceMetricsProp
 
   if (isLoading) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           <span className="ml-3 text-gray-600 dark:text-gray-400">Loading performance metrics...</span>
@@ -210,7 +210,7 @@ export const EmployeePerformanceMetrics: React.FC<EmployeePerformanceMetricsProp
 
   if (!metrics) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="text-center py-12">
           <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Data Available</h3>
@@ -221,7 +221,7 @@ export const EmployeePerformanceMetrics: React.FC<EmployeePerformanceMetricsProp
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="bg-blue-100 dark:bg-blue-900/20 p-2 rounded-lg">
@@ -333,10 +333,10 @@ export const EmployeePerformanceMetrics: React.FC<EmployeePerformanceMetricsProp
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <p className="text-blue-100 text-sm mb-2">Daily Target</p>
+            <p className="text-blue-50 text-sm mb-2">Daily Target</p>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-2xl font-bold">{metrics.goals.currentProgress.daily}</span>
-              <span className="text-blue-200">/ {metrics.goals.dailyTarget}</span>
+              <span className="text-blue-100">/ {metrics.goals.dailyTarget}</span>
             </div>
             <div className="w-full bg-blue-400 rounded-full h-2">
               <div
@@ -347,10 +347,10 @@ export const EmployeePerformanceMetrics: React.FC<EmployeePerformanceMetricsProp
           </div>
           
           <div>
-            <p className="text-blue-100 text-sm mb-2">Weekly Target</p>
+            <p className="text-blue-50 text-sm mb-2">Weekly Target</p>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-2xl font-bold">{metrics.goals.currentProgress.weekly}</span>
-              <span className="text-blue-200">/ {metrics.goals.weeklyTarget}</span>
+              <span className="text-blue-100">/ {metrics.goals.weeklyTarget}</span>
             </div>
             <div className="w-full bg-blue-400 rounded-full h-2">
               <div
@@ -361,10 +361,10 @@ export const EmployeePerformanceMetrics: React.FC<EmployeePerformanceMetricsProp
           </div>
           
           <div>
-            <p className="text-blue-100 text-sm mb-2">Monthly Target</p>
+            <p className="text-blue-50 text-sm mb-2">Monthly Target</p>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-2xl font-bold">{metrics.goals.currentProgress.monthly}</span>
-              <span className="text-blue-200">/ {metrics.goals.monthlyTarget}</span>
+              <span className="text-blue-100">/ {metrics.goals.monthlyTarget}</span>
             </div>
             <div className="w-full bg-blue-400 rounded-full h-2">
               <div

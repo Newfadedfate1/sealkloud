@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   MessageSquare, 
   Send, 
@@ -24,6 +24,8 @@ import {
   Bell,
   Settings
 } from 'lucide-react';
+// @ts-expect-error: Make sure to install socket.io-client (npm install socket.io-client)
+import { io, Socket } from 'socket.io-client';
 
 interface CommunicationTemplate {
   id: string;
@@ -65,6 +67,7 @@ interface IntelligentCommunicationToolsProps {
   onSendMessage: (message: string, type: string) => void;
   onScheduleFollowUp: (date: Date, message: string) => void;
   onClose: () => void;
+  currentUser: any;
 }
 
 // Mock communication templates
@@ -206,9 +209,10 @@ export const IntelligentCommunicationTools: React.FC<IntelligentCommunicationToo
   userRole,
   onSendMessage,
   onScheduleFollowUp,
-  onClose
+  onClose,
+  currentUser
 }) => {
-  const [activeTab, setActiveTab] = useState<'compose' | 'templates' | 'history' | 'sentiment' | 'automation'>('compose');
+  const [activeTab, setActiveTab] = useState<'compose' | 'templates' | 'history' | 'sentiment' | 'automation' | 'chat'>('compose');
   const [message, setMessage] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<CommunicationTemplate | null>(null);
   const [sentimentAnalysis, setSentimentAnalysis] = useState<SentimentAnalysis | null>(null);
@@ -217,12 +221,51 @@ export const IntelligentCommunicationTools: React.FC<IntelligentCommunicationToo
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpMessage, setFollowUpMessage] = useState('');
   const [showSentiment, setShowSentiment] = useState(false);
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const socketRef = useRef<Socket | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (ticket) {
       setCommunicationHistory(generateCommunicationHistory(ticket.id));
     }
   }, [ticket]);
+
+  // Fetch chat history and connect to socket.io on mount
+  useEffect(() => {
+    if (!ticket) return;
+    // Fetch chat history
+    fetch(`/api/tickets/${ticket.id}/chats`, {
+      credentials: 'include',
+    })
+      .then(res => res.json())
+      .then(data => {
+        setChatMessages(data.chats || []);
+      });
+    // Connect to socket.io
+    if (!socketRef.current) {
+      socketRef.current = io('/', { transports: ['websocket'] });
+    }
+    const socket = socketRef.current;
+    socket.emit('join_ticket', { ticketId: ticket.id });
+    socket.on('chat_message', (msg: any) => {
+      if (msg.ticketId === ticket.id) {
+        setChatMessages(prev => [...prev, msg]);
+      }
+    });
+    return () => {
+      socket.off('chat_message');
+    };
+  }, [ticket]);
+
+  // Scroll to bottom on new message
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages]);
 
   const handleTemplateSelect = (template: CommunicationTemplate) => {
     setSelectedTemplate(template);
@@ -274,6 +317,18 @@ export const IntelligentCommunicationTools: React.FC<IntelligentCommunicationToo
     }
   };
 
+  const handleSendChat = () => {
+    if (!chatInput.trim() || !ticket) return;
+    const msg = {
+      ticketId: ticket.id,
+      senderId: currentUser.id,
+      senderRole: currentUser.role,
+      message: chatInput.trim(),
+    };
+    socketRef.current?.emit('chat_message', msg);
+    setChatInput('');
+  };
+
   const getSentimentIcon = (sentiment: string) => {
     switch (sentiment) {
       case 'positive': return <Smile className="h-5 w-5 text-green-500" />;
@@ -322,7 +377,8 @@ export const IntelligentCommunicationTools: React.FC<IntelligentCommunicationToo
               { id: 'templates', label: 'Templates', icon: Copy },
               { id: 'history', label: 'History', icon: Clock },
               { id: 'sentiment', label: 'Sentiment', icon: Brain },
-              { id: 'automation', label: 'Automation', icon: Zap }
+              { id: 'automation', label: 'Automation', icon: Zap },
+              { id: 'chat', label: 'Chat', icon: MessageSquare },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -661,6 +717,43 @@ export const IntelligentCommunicationTools: React.FC<IntelligentCommunicationToo
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'chat' && (
+            <div className="flex flex-col h-[60vh]">
+              <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded-lg p-4 mb-4">
+                {chatMessages.length === 0 && (
+                  <div className="text-center text-gray-400">No messages yet.</div>
+                )}
+                {chatMessages.map((msg, idx) => (
+                  <div key={msg.id || idx} className={`mb-2 flex ${msg.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-xs px-4 py-2 rounded-lg shadow text-sm ${msg.senderId === currentUser.id ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'}`}>
+                      <div className="font-semibold mb-1">{msg.senderRole === 'client' ? ticket.clientName : 'You'}</div>
+                      <div>{msg.message}</div>
+                      <div className="text-xs text-gray-300 mt-1 text-right">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : ''}</div>
+                    </div>
+                  </div>
+                ))}
+                <div ref={chatEndRef} />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSendChat(); }}
+                  placeholder="Type a message..."
+                  className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+                <button
+                  onClick={handleSendChat}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
+                  disabled={!chatInput.trim()}
+                >
+                  <Send className="h-4 w-4" />
+                </button>
               </div>
             </div>
           )}

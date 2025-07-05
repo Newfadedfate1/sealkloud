@@ -33,6 +33,7 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
   const [showAdvancedAnalytics, setShowAdvancedAnalytics] = useState(false);
   const [showCommunicationTools, setShowCommunicationTools] = useState(false);
   const [showTicketHistory, setShowTicketHistory] = useState(false);
+  const [showSelectTicketWarning, setShowSelectTicketWarning] = useState(false);
   
   // Filter tickets for L3 - critical issues and complex problems
   const myTickets = tickets.filter(ticket => ticket.assignedTo === user.id);
@@ -182,14 +183,26 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                 <BookOpen className="h-5 w-5" />
               </button>
               <button
-                onClick={() => setShowAIAssistant(true)}
+                onClick={() => {
+                  if (!selectedTicket) {
+                    setShowSelectTicketWarning(true);
+                  } else {
+                    setShowAIAssistant(true);
+                  }
+                }}
                 className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                 title="AI Assistant"
               >
                 <Brain className="h-5 w-5" />
               </button>
               <button
-                onClick={() => setShowWorkflowAutomation(true)}
+                onClick={() => {
+                  if (!selectedTicket) {
+                    setShowSelectTicketWarning(true);
+                  } else {
+                    setShowWorkflowAutomation(true);
+                  }
+                }}
                 className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                 title="Workflow Automation"
               >
@@ -203,7 +216,13 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                 <BarChart3 className="h-5 w-5" />
               </button>
               <button
-                onClick={() => setShowCommunicationTools(true)}
+                onClick={() => {
+                  if (!selectedTicket) {
+                    setShowSelectTicketWarning(true);
+                  } else {
+                    setShowCommunicationTools(true);
+                  }
+                }}
                 className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                 title="Communication Tools"
               >
@@ -604,6 +623,25 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
           userName={`${user.firstName} ${user.lastName}`}
           onClose={() => setShowTicketHistory(false)}
         />
+      )}
+
+      {/* Warning Modal for Select Ticket */}
+      {showSelectTicketWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full p-6 flex flex-col items-center">
+            <div className="mb-4">
+              <AlertTriangle className="h-10 w-10 text-yellow-500 mx-auto" />
+            </div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2 text-center">Please select a ticket first</h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-6 text-center">You need to select a ticket to use this feature.</p>
+            <button
+              onClick={() => setShowSelectTicketWarning(false)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium"
+            >
+              OK
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

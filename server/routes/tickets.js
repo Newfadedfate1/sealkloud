@@ -358,4 +358,32 @@ router.patch('/:ticketId', requireEmployee, [
   }
 });
 
+// Get chat history for a ticket
+router.get('/:ticketId/chats', async (req, res, next) => {
+  try {
+    const { ticketId } = req.params;
+    // Only allow access if user is assigned to the ticket or is the client
+    const ticketResult = await pool.query('SELECT * FROM tickets WHERE ticket_id = $1', [ticketId]);
+    if (ticketResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+    const ticket = ticketResult.rows[0];
+    if (
+      req.user.role === 'client' && ticket.client_id !== req.user.id ||
+      req.user.role.startsWith('employee') && ticket.assigned_to !== req.user.id
+    ) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const chatResult = await pool.query(
+      'SELECT id, ticket_id, sender_id, sender_role, message, timestamp FROM ticket_chats WHERE ticket_id = $1 ORDER BY timestamp ASC',
+      [ticketId]
+    );
+    res.json({
+      chats: chatResult.rows
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export { router as ticketRoutes };

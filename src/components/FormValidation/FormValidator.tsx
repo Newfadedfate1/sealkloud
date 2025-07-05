@@ -149,7 +149,7 @@ export const validateField = (
 };
 
 // Hook for form validation
-export const useFormValidation = (initialData: any, validationRules: ValidationRules) => {
+const useFormValidation = (initialData: any, validationRules: ValidationRules) => {
   const [formData, setFormData] = useState(initialData);
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [touched, setTouched] = useState<{ [key: string]: boolean }>({});
@@ -241,6 +241,8 @@ export const useFormValidation = (initialData: any, validationRules: ValidationR
     setIsSubmitting,
   };
 };
+
+export { useFormValidation };
 
 // Enhanced Input Component
 interface EnhancedInputProps {

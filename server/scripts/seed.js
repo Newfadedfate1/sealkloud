@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { pool, initializeDatabase } from '../config/database.js';
+import { initializeDatabase, getDatabase } from '../config/database.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -239,39 +239,36 @@ const activities = [
 ];
 
 async function seedDatabase() {
-  await initializeDatabase();
-  const client = await pool.connect();
+  const db = await initializeDatabase();
   
   try {
     console.log('🌱 Starting database seeding...');
     
     // Clear existing data
     console.log('🗑️  Clearing existing data...');
-    await client.query('DELETE FROM ticket_activities');
-    await client.query('DELETE FROM tickets');
-    await client.query('DELETE FROM users');
+    await db.run('DELETE FROM ticket_activities');
+    await db.run('DELETE FROM tickets');
+    await db.run('DELETE FROM users');
     
-    // Reset sequences
-    await client.query('ALTER SEQUENCE users_id_seq RESTART WITH 1');
-    await client.query('ALTER SEQUENCE tickets_id_seq RESTART WITH 1');
-    await client.query('ALTER SEQUENCE ticket_activities_id_seq RESTART WITH 1');
+    // Reset auto-increment counters
+    await db.run('DELETE FROM sqlite_sequence WHERE name IN ("users", "tickets", "ticket_activities")');
     
     // Insert users
     console.log('👥 Creating users...');
     for (const user of users) {
       const hashedPassword = await bcrypt.hash(user.password, SALT_ROUNDS);
-      await client.query(`
+      await db.run(`
         INSERT INTO users (email, password_hash, first_name, last_name, role, company_id)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES (?, ?, ?, ?, ?, ?)
       `, [user.email, hashedPassword, user.firstName, user.lastName, user.role, user.companyId]);
     }
     
     // Insert tickets
     console.log('🎫 Creating tickets...');
     for (const ticket of tickets) {
-      await client.query(`
+      await db.run(`
         INSERT INTO tickets (ticket_id, client_name, client_id, title, description, problem_level, status, assigned_to, submitted_date, last_updated, resolved_date)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         ticket.ticketId,
         ticket.clientName,
@@ -290,22 +287,22 @@ async function seedDatabase() {
     // Insert activities
     console.log('📝 Creating activities...');
     for (const activity of activities) {
-      await client.query(`
+      await db.run(`
         INSERT INTO ticket_activities (ticket_id, user_id, action, description)
-        VALUES ($1, $2, $3, $4)
+        VALUES (?, ?, ?, ?)
       `, [activity.ticketId, activity.userId, activity.action, activity.description]);
     }
     
     // Create ticket_chats table if not exists
-    await client.query(`
+    await db.exec(`
       CREATE TABLE IF NOT EXISTS ticket_chats (
-        id SERIAL PRIMARY KEY,
-        ticket_id VARCHAR(50) NOT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticket_id TEXT NOT NULL,
         sender_id INTEGER NOT NULL,
-        sender_role VARCHAR(20) NOT NULL,
+        sender_role TEXT NOT NULL,
         message TEXT NOT NULL,
-        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+        timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+      )
     `);
     
     console.log('✅ Database seeding completed successfully!');
@@ -324,8 +321,6 @@ async function seedDatabase() {
   } catch (error) {
     console.error('❌ Error seeding database:', error);
     throw error;
-  } finally {
-    client.release();
   }
 }
 

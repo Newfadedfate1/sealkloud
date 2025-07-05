@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import { body, query, validationResult } from 'express-validator';
-import { pool } from '../config/database.js';
+import { getDatabase } from '../config/database.js';
 import { requireAdmin, requireEmployee } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -27,46 +27,47 @@ router.get('/', requireAdmin, [
     } = req.query;
 
     const offset = (page - 1) * limit;
-    let whereConditions = ['is_active = true'];
+    let whereConditions = ['is_active = 1'];
     let queryParams = [];
-    let paramCount = 0;
 
     if (role) {
-      whereConditions.push(`role = $${++paramCount}`);
+      whereConditions.push(`role = ?`);
       queryParams.push(role);
     }
 
     if (search) {
       whereConditions.push(`(
-        first_name ILIKE $${++paramCount} OR 
-        last_name ILIKE $${++paramCount} OR 
-        email ILIKE $${++paramCount}
+        first_name LIKE ? OR 
+        last_name LIKE ? OR 
+        email LIKE ?
       )`);
       const searchPattern = `%${search}%`;
       queryParams.push(searchPattern, searchPattern, searchPattern);
-      paramCount += 2;
     }
 
     const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
 
+    // Get total count
+    const countQuery = `SELECT COUNT(*) as total FROM users ${whereClause}`;
+    const countResult = await getDatabase().get(countQuery, queryParams);
+    const totalCount = countResult.total;
+
+    // Get users
     const usersQuery = `
       SELECT 
         id, email, first_name, last_name, role, company_id, 
-        is_active, last_login, created_at,
-        COUNT(*) OVER() as total_count
+        is_active, last_login, created_at
       FROM users
       ${whereClause}
       ORDER BY created_at DESC
-      LIMIT $${++paramCount} OFFSET $${++paramCount}
+      LIMIT ? OFFSET ?
     `;
 
     queryParams.push(limit, offset);
-
-    const result = await pool.query(usersQuery, queryParams);
-    const totalCount = result.rows.length > 0 ? parseInt(result.rows[0].total_count) : 0;
+    const users = await getDatabase().all(usersQuery, queryParams);
 
     res.json({
-      users: result.rows.map(user => ({
+      users: users.map(user => ({
         id: user.id,
         email: user.email,
         firstName: user.first_name,
@@ -92,16 +93,15 @@ router.get('/', requireAdmin, [
 // Get current user profile
 router.get('/profile', async (req, res, next) => {
   try {
-    const result = await pool.query(
-      'SELECT id, email, first_name, last_name, role, company_id, is_active, last_login, created_at FROM users WHERE id = $1',
+    const user = await getDatabase().get(
+      'SELECT id, email, first_name, last_name, role, company_id, is_active, last_login, created_at FROM users WHERE id = ?',
       [req.user.id]
     );
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const user = result.rows[0];
     res.json({
       user: {
         id: user.id,
@@ -135,20 +135,19 @@ router.patch('/profile', [
     const { firstName, lastName, email } = req.body;
     const updates = [];
     const values = [];
-    let paramCount = 0;
 
     if (firstName !== undefined) {
-      updates.push(`first_name = $${++paramCount}`);
+      updates.push(`first_name = ?`);
       values.push(firstName);
     }
 
     if (lastName !== undefined) {
-      updates.push(`last_name = $${++paramCount}`);
+      updates.push(`last_name = ?`);
       values.push(lastName);
     }
 
     if (email !== undefined) {
-      updates.push(`email = $${++paramCount}`);
+      updates.push(`email = ?`);
       values.push(email);
     }
 
@@ -162,12 +161,16 @@ router.patch('/profile', [
     const updateQuery = `
       UPDATE users 
       SET ${updates.join(', ')}
-      WHERE id = $${++paramCount}
-      RETURNING id, email, first_name, last_name, role, company_id, is_active, last_login, created_at
+      WHERE id = ?
     `;
 
-    const result = await pool.query(updateQuery, values);
-    const updatedUser = result.rows[0];
+    await getDatabase().run(updateQuery, values);
+
+    // Get updated user
+    const updatedUser = await getDatabase().get(
+      'SELECT id, email, first_name, last_name, role, company_id, is_active, last_login, created_at FROM users WHERE id = ?',
+      [req.user.id]
+    );
 
     res.json({
       user: {
@@ -201,17 +204,17 @@ router.patch('/password', [
     const { currentPassword, newPassword } = req.body;
 
     // Get current password hash
-    const result = await pool.query(
-      'SELECT password_hash FROM users WHERE id = $1',
+    const result = await getDatabase().get(
+      'SELECT password_hash FROM users WHERE id = ?',
       [req.user.id]
     );
 
-    if (result.rows.length === 0) {
+    if (!result) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     // Verify current password
-    const isValidPassword = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
+    const isValidPassword = await bcrypt.compare(currentPassword, result.password_hash);
     if (!isValidPassword) {
       return res.status(400).json({ error: 'Current password is incorrect' });
     }
@@ -221,8 +224,8 @@ router.patch('/password', [
     const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
     // Update password
-    await pool.query(
-      'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+    await getDatabase().run(
+      'UPDATE users SET password_hash = ? WHERE id = ?',
       [newPasswordHash, req.user.id]
     );
 
@@ -232,8 +235,12 @@ router.patch('/password', [
   }
 });
 
-// Update user role (admin only)
-router.patch('/:userId/role', requireAdmin, [
+// Create new user (admin only)
+router.post('/', requireAdmin, [
+  body('email').isEmail().normalizeEmail(),
+  body('password').isLength({ min: 6 }),
+  body('firstName').trim().isLength({ min: 1 }),
+  body('lastName').trim().isLength({ min: 1 }),
   body('role').isIn(['client', 'employee_l1', 'employee_l2', 'employee_l3', 'admin'])
 ], async (req, res, next) => {
   try {
@@ -242,27 +249,128 @@ router.patch('/:userId/role', requireAdmin, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { userId } = req.params;
-    const { role } = req.body;
+    const { email, password, firstName, lastName, role, companyId = 'sealkloud' } = req.body;
 
-    // Prevent self-demotion from admin
-    if (parseInt(userId) === req.user.id && req.user.role === 'admin' && role !== 'admin') {
-      return res.status(400).json({ error: 'Cannot change your own admin role' });
-    }
-
-    const result = await pool.query(
-      `UPDATE users 
-       SET role = $1, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $2 
-       RETURNING id, email, first_name, last_name, role, company_id, is_active`,
-      [role, userId]
+    // Check if user already exists
+    const existingUser = await getDatabase().get(
+      'SELECT id FROM users WHERE email = ?',
+      [email]
     );
 
-    if (result.rows.length === 0) {
+    if (existingUser) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    // Hash password
+    const saltRounds = 12;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    // Insert user
+    const result = await getDatabase().run(
+      `INSERT INTO users (email, password_hash, first_name, last_name, role, company_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [email, passwordHash, firstName, lastName, role, companyId]
+    );
+
+    // Get the inserted user
+    const user = await getDatabase().get(
+      'SELECT id, email, first_name, last_name, role, company_id, is_active, created_at FROM users WHERE id = ?',
+      [result.lastID]
+    );
+
+    res.status(201).json({
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        role: user.role,
+        companyId: user.company_id,
+        isActive: user.is_active,
+        createdAt: user.created_at
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update user (admin only)
+router.patch('/:userId', requireAdmin, [
+  body('firstName').optional().trim().isLength({ min: 1 }),
+  body('lastName').optional().trim().isLength({ min: 1 }),
+  body('email').optional().isEmail().normalizeEmail(),
+  body('role').optional().isIn(['client', 'employee_l1', 'employee_l2', 'employee_l3', 'admin']),
+  body('isActive').optional().isBoolean()
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { userId } = req.params;
+    const { firstName, lastName, email, role, isActive } = req.body;
+
+    // Check if user exists
+    const existingUser = await getDatabase().get(
+      'SELECT id FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (!existingUser) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const updatedUser = result.rows[0];
+    const updates = [];
+    const values = [];
+
+    if (firstName !== undefined) {
+      updates.push(`first_name = ?`);
+      values.push(firstName);
+    }
+
+    if (lastName !== undefined) {
+      updates.push(`last_name = ?`);
+      values.push(lastName);
+    }
+
+    if (email !== undefined) {
+      updates.push(`email = ?`);
+      values.push(email);
+    }
+
+    if (role !== undefined) {
+      updates.push(`role = ?`);
+      values.push(role);
+    }
+
+    if (isActive !== undefined) {
+      updates.push(`is_active = ?`);
+      values.push(isActive ? 1 : 0);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No valid updates provided' });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(userId);
+
+    const updateQuery = `
+      UPDATE users 
+      SET ${updates.join(', ')}
+      WHERE id = ?
+    `;
+
+    await getDatabase().run(updateQuery, values);
+
+    // Get updated user
+    const updatedUser = await getDatabase().get(
+      'SELECT id, email, first_name, last_name, role, company_id, is_active, last_login, created_at FROM users WHERE id = ?',
+      [userId]
+    );
+
     res.json({
       user: {
         id: updatedUser.id,
@@ -271,7 +379,9 @@ router.patch('/:userId/role', requireAdmin, [
         lastName: updatedUser.last_name,
         role: updatedUser.role,
         companyId: updatedUser.company_id,
-        isActive: updatedUser.is_active
+        isActive: updatedUser.is_active,
+        lastLogin: updatedUser.last_login,
+        createdAt: updatedUser.created_at
       }
     });
   } catch (error) {
@@ -279,26 +389,28 @@ router.patch('/:userId/role', requireAdmin, [
   }
 });
 
-// Deactivate user (admin only)
-router.patch('/:userId/deactivate', requireAdmin, async (req, res, next) => {
+// Delete user (admin only)
+router.delete('/:userId', requireAdmin, async (req, res, next) => {
   try {
     const { userId } = req.params;
 
-    // Prevent self-deactivation
-    if (parseInt(userId) === req.user.id) {
-      return res.status(400).json({ error: 'Cannot deactivate your own account' });
-    }
-
-    const result = await pool.query(
-      'UPDATE users SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id',
+    // Check if user exists
+    const existingUser = await getDatabase().get(
+      'SELECT id FROM users WHERE id = ?',
       [userId]
     );
 
-    if (result.rows.length === 0) {
+    if (!existingUser) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({ message: 'User deactivated successfully' });
+    // Soft delete by setting is_active to false
+    await getDatabase().run(
+      'UPDATE users SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [userId]
+    );
+
+    res.json({ message: 'User deleted successfully' });
   } catch (error) {
     next(error);
   }

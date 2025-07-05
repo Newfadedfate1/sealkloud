@@ -11,6 +11,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { authenticateToken } from './middleware/auth.js';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
+import { initializeDatabase } from './config/database.js';
 
 dotenv.config();
 
@@ -79,9 +80,9 @@ io.on('connection', (socket) => {
     const { ticketId, senderId, senderRole, message } = data;
     // Save to DB
     try {
-      const { pool } = await import('./config/database.js');
-      await pool.query(
-        'INSERT INTO ticket_chats (ticket_id, sender_id, sender_role, message) VALUES ($1, $2, $3, $4)',
+      const { getDatabase } = await import('./config/database.js');
+      await getDatabase().run(
+        'INSERT INTO ticket_chats (ticket_id, sender_id, sender_role, message) VALUES (?, ?, ?, ?)',
         [ticketId, senderId, senderRole, message]
       );
       // Broadcast to room
@@ -98,7 +99,22 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`🚀 SealKloud Helpdesk API running on port ${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-});
+// Initialize database and start server
+const startServer = async () => {
+  try {
+    // Initialize database
+    await initializeDatabase();
+    console.log('✅ Database initialized successfully');
+    
+    // Start server
+    server.listen(PORT, () => {
+      console.log(`🚀 SealKloud Helpdesk API running on port ${PORT}`);
+      console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();

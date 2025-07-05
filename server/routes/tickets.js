@@ -1,6 +1,6 @@
 import express from 'express';
 import { body, query, validationResult } from 'express-validator';
-import { pool } from '../config/database.js';
+import { getDatabase } from '../config/database.js';
 import { requireEmployee, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -36,60 +36,62 @@ router.get('/', [
 
     // Build dynamic WHERE clause
     if (status) {
-      whereConditions.push(`t.status = $${++paramCount}`);
+      whereConditions.push(`t.status = ?`);
       queryParams.push(status);
     }
 
     if (problemLevel) {
-      whereConditions.push(`t.problem_level = $${++paramCount}`);
+      whereConditions.push(`t.problem_level = ?`);
       queryParams.push(problemLevel);
     }
 
     if (assignedTo) {
-      whereConditions.push(`t.assigned_to = $${++paramCount}`);
+      whereConditions.push(`t.assigned_to = ?`);
       queryParams.push(assignedTo);
     }
 
     if (search) {
       whereConditions.push(`(
-        t.title ILIKE $${++paramCount} OR 
-        t.description ILIKE $${++paramCount} OR 
-        t.client_name ILIKE $${++paramCount} OR
-        t.ticket_id ILIKE $${++paramCount}
+        t.title LIKE ? OR 
+        t.description LIKE ? OR 
+        t.client_name LIKE ? OR
+        t.ticket_id LIKE ?
       )`);
       const searchPattern = `%${search}%`;
       queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern);
-      paramCount += 3; // We added 4 parameters but incremented once already
     }
 
     // Role-based filtering
     if (req.user.role === 'client') {
-      whereConditions.push(`t.client_id = $${++paramCount}`);
+      whereConditions.push(`t.client_id = ?`);
       queryParams.push(req.user.id);
     }
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
+    // Get total count
+    const countQuery = `SELECT COUNT(*) as total FROM tickets t ${whereClause}`;
+    const countResult = await getDatabase().get(countQuery, queryParams);
+    const total = countResult.total;
+
     // Get tickets with user information
     const ticketsQuery = `
       SELECT 
         t.*,
-        u.first_name || ' ' || u.last_name as assigned_to_name,
-        COUNT(*) OVER() as total_count
+        u.first_name || ' ' || u.last_name as assigned_to_name
       FROM tickets t
       LEFT JOIN users u ON t.assigned_to = u.id
       ${whereClause}
       ORDER BY t.last_updated DESC
-      LIMIT $${++paramCount} OFFSET $${++paramCount}
+      LIMIT ? OFFSET ?
     `;
 
     queryParams.push(limit, offset);
 
-    const result = await pool.query(ticketsQuery, queryParams);
-    const totalCount = result.rows.length > 0 ? parseInt(result.rows[0].total_count) : 0;
+    const result = await getDatabase().all(ticketsQuery, queryParams);
 
     res.json({
-      tickets: result.rows.map(row => ({
+      tickets: result.map(row => ({
         id: row.ticket_id,
         clientName: row.client_name,
         clientId: row.client_id,
@@ -106,8 +108,8 @@ router.get('/', [
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total: totalCount,
-        pages: Math.ceil(totalCount / limit)
+        total: total,
+        pages: Math.ceil(total / limit)
       }
     });
   } catch (error) {
@@ -121,7 +123,7 @@ router.get('/:ticketId', async (req, res, next) => {
     const { ticketId } = req.params;
 
     // Get ticket details
-    const ticketResult = await pool.query(`
+    const ticket = await getDatabase().get(`
       SELECT 
         t.*,
         u.first_name || ' ' || u.last_name as assigned_to_name,
@@ -129,27 +131,26 @@ router.get('/:ticketId', async (req, res, next) => {
       FROM tickets t
       LEFT JOIN users u ON t.assigned_to = u.id
       LEFT JOIN users c ON t.client_id = c.id
-      WHERE t.ticket_id = $1
+      WHERE t.ticket_id = ?
     `, [ticketId]);
 
-    if (ticketResult.rows.length === 0) {
+    if (!ticket) {
       return res.status(404).json({ error: 'Ticket not found' });
     }
 
     // Role-based access control
-    const ticket = ticketResult.rows[0];
     if (req.user.role === 'client' && ticket.client_id !== req.user.id) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
     // Get activity log
-    const activityResult = await pool.query(`
+    const activities = await getDatabase().all(`
       SELECT 
         ta.*,
         u.first_name || ' ' || u.last_name as user_name
       FROM ticket_activities ta
       LEFT JOIN users u ON ta.user_id = u.id
-      WHERE ta.ticket_id = $1
+      WHERE ta.ticket_id = ?
       ORDER BY ta.timestamp DESC
     `, [ticket.id]);
 
@@ -168,7 +169,7 @@ router.get('/:ticketId', async (req, res, next) => {
         lastUpdated: ticket.last_updated,
         resolvedDate: ticket.resolved_date
       },
-      activityLog: activityResult.rows.map(activity => ({
+      activityLog: activities.map(activity => ({
         id: activity.id,
         userId: activity.user_id,
         userName: activity.user_name,
@@ -198,8 +199,8 @@ router.post('/', [
     const { title, description, problemLevel, clientName } = req.body;
 
     // Generate ticket ID
-    const ticketIdResult = await pool.query('SELECT COUNT(*) as count FROM tickets');
-    const ticketCount = parseInt(ticketIdResult.rows[0].count) + 1;
+    const countResult = await getDatabase().get('SELECT COUNT(*) as count FROM tickets');
+    const ticketCount = countResult.count + 1;
     const ticketId = `TK-${ticketCount.toString().padStart(3, '0')}`;
 
     // Determine client info
@@ -211,18 +212,18 @@ router.post('/', [
     }
 
     // Insert ticket
-    const result = await pool.query(`
+    const result = await getDatabase().run(`
       INSERT INTO tickets (ticket_id, client_name, client_id, title, description, problem_level, status)
-      VALUES ($1, $2, $3, $4, $5, $6, 'unassigned')
-      RETURNING *
+      VALUES (?, ?, ?, ?, ?, ?, 'unassigned')
     `, [ticketId, finalClientName, clientId, title, description, problemLevel]);
 
-    const ticket = result.rows[0];
+    // Get the inserted ticket
+    const ticket = await getDatabase().get('SELECT * FROM tickets WHERE id = ?', [result.lastID]);
 
     // Log activity
-    await pool.query(`
+    await getDatabase().run(`
       INSERT INTO ticket_activities (ticket_id, user_id, action, description)
-      VALUES ($1, $2, 'created', 'Ticket created')
+      VALUES (?, ?, 'created', 'Ticket created')
     `, [ticket.id, req.user.id]);
 
     res.status(201).json({
@@ -259,29 +260,27 @@ router.patch('/:ticketId', requireEmployee, [
     const { status, assignedTo, problemLevel } = req.body;
 
     // Get current ticket
-    const currentTicket = await pool.query(
-      'SELECT * FROM tickets WHERE ticket_id = $1',
+    const ticket = await getDatabase().get(
+      'SELECT * FROM tickets WHERE ticket_id = ?',
       [ticketId]
     );
 
-    if (currentTicket.rows.length === 0) {
+    if (!ticket) {
       return res.status(404).json({ error: 'Ticket not found' });
     }
 
-    const ticket = currentTicket.rows[0];
     const updates = [];
     const values = [];
-    let paramCount = 0;
 
     // Build dynamic update query
     if (status !== undefined) {
-      updates.push(`status = $${++paramCount}`);
+      updates.push(`status = ?`);
       values.push(status);
 
       // Log status change
-      await pool.query(`
+      await getDatabase().run(`
         INSERT INTO ticket_activities (ticket_id, user_id, action, description)
-        VALUES ($1, $2, 'status_changed', $3)
+        VALUES (?, ?, 'status_changed', ?)
       `, [ticket.id, req.user.id, `Status changed to ${status}`]);
 
       // Set resolved date if status is resolved
@@ -291,31 +290,31 @@ router.patch('/:ticketId', requireEmployee, [
     }
 
     if (assignedTo !== undefined) {
-      updates.push(`assigned_to = $${++paramCount}`);
+      updates.push(`assigned_to = ?`);
       values.push(assignedTo);
 
       // Get assignee name for logging
-      const assigneeResult = await pool.query(
-        'SELECT first_name, last_name FROM users WHERE id = $1',
+      const assigneeResult = await getDatabase().get(
+        'SELECT first_name, last_name FROM users WHERE id = ?',
         [assignedTo]
       );
-      const assigneeName = assigneeResult.rows.length > 0 
-        ? `${assigneeResult.rows[0].first_name} ${assigneeResult.rows[0].last_name}`
+      const assigneeName = assigneeResult 
+        ? `${assigneeResult.first_name} ${assigneeResult.last_name}`
         : 'Unknown';
 
-      await pool.query(`
+      await getDatabase().run(`
         INSERT INTO ticket_activities (ticket_id, user_id, action, description)
-        VALUES ($1, $2, 'assigned', $3)
+        VALUES (?, ?, 'assigned', ?)
       `, [ticket.id, req.user.id, `Ticket assigned to ${assigneeName}`]);
     }
 
     if (problemLevel !== undefined) {
-      updates.push(`problem_level = $${++paramCount}`);
+      updates.push(`problem_level = ?`);
       values.push(problemLevel);
 
-      await pool.query(`
+      await getDatabase().run(`
         INSERT INTO ticket_activities (ticket_id, user_id, action, description)
-        VALUES ($1, $2, 'priority_changed', $3)
+        VALUES (?, ?, 'priority_changed', ?)
       `, [ticket.id, req.user.id, `Priority changed to ${problemLevel}`]);
     }
 
@@ -331,12 +330,16 @@ router.patch('/:ticketId', requireEmployee, [
     const updateQuery = `
       UPDATE tickets 
       SET ${updates.join(', ')}
-      WHERE ticket_id = $${++paramCount}
-      RETURNING *
+      WHERE ticket_id = ?
     `;
 
-    const result = await pool.query(updateQuery, values);
-    const updatedTicket = result.rows[0];
+    await getDatabase().run(updateQuery, values);
+    
+    // Get updated ticket
+    const updatedTicket = await getDatabase().get(
+      'SELECT * FROM tickets WHERE ticket_id = ?',
+      [ticketId]
+    );
 
     res.json({
       ticket: {
@@ -363,23 +366,23 @@ router.get('/:ticketId/chats', async (req, res, next) => {
   try {
     const { ticketId } = req.params;
     // Only allow access if user is assigned to the ticket or is the client
-    const ticketResult = await pool.query('SELECT * FROM tickets WHERE ticket_id = $1', [ticketId]);
-    if (ticketResult.rows.length === 0) {
+    const ticketResult = await getDatabase().get('SELECT * FROM tickets WHERE ticket_id = ?', [ticketId]);
+    if (!ticketResult) {
       return res.status(404).json({ error: 'Ticket not found' });
     }
-    const ticket = ticketResult.rows[0];
+    const ticket = ticketResult;
     if (
       req.user.role === 'client' && ticket.client_id !== req.user.id ||
       req.user.role.startsWith('employee') && ticket.assigned_to !== req.user.id
     ) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const chatResult = await pool.query(
-      'SELECT id, ticket_id, sender_id, sender_role, message, timestamp FROM ticket_chats WHERE ticket_id = $1 ORDER BY timestamp ASC',
+    const chatResult = await getDatabase().all(
+      'SELECT id, ticket_id, sender_id, sender_role, message, timestamp FROM ticket_chats WHERE ticket_id = ? ORDER BY timestamp ASC',
       [ticketId]
     );
     res.json({
-      chats: chatResult.rows
+      chats: chatResult
     });
   } catch (error) {
     next(error);

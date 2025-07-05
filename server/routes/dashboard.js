@@ -1,5 +1,5 @@
 import express from 'express';
-import { pool } from '../config/database.js';
+import { getDatabase } from '../config/database.js';
 
 const router = express.Router();
 
@@ -7,19 +7,19 @@ const router = express.Router();
 router.get('/stats', async (req, res, next) => {
   try {
     // Get ticket statistics
-    const ticketStatsResult = await pool.query(`
+    const ticketStatsResult = await getDatabase().get(`
       SELECT 
         COUNT(*) as total,
-        COUNT(*) FILTER (WHERE status = 'open') as open,
-        COUNT(*) FILTER (WHERE status = 'unassigned') as unassigned,
-        COUNT(*) FILTER (WHERE status = 'in-progress') as in_progress,
-        COUNT(*) FILTER (WHERE status = 'resolved') as resolved,
-        COUNT(*) FILTER (WHERE status = 'closed') as closed
+        SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open,
+        SUM(CASE WHEN status = 'unassigned' THEN 1 ELSE 0 END) as unassigned,
+        SUM(CASE WHEN status = 'in-progress' THEN 1 ELSE 0 END) as in_progress,
+        SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved,
+        SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed
       FROM tickets
     `);
 
     // Get client ticket distribution (for pie chart)
-    const clientDistributionResult = await pool.query(`
+    const clientDistributionResult = await getDatabase().all(`
       SELECT 
         client_name,
         COUNT(*) as ticket_count
@@ -29,9 +29,9 @@ router.get('/stats', async (req, res, next) => {
       ORDER BY ticket_count DESC
     `);
 
-    const totalOpenTickets = clientDistributionResult.rows.reduce((sum, row) => sum + parseInt(row.ticket_count), 0);
+    const totalOpenTickets = clientDistributionResult.reduce((sum, row) => sum + parseInt(row.ticket_count), 0);
     
-    const clientData = clientDistributionResult.rows.map(row => ({
+    const clientData = clientDistributionResult.map(row => ({
       clientName: row.client_name,
       ticketCount: parseInt(row.ticket_count),
       percentage: totalOpenTickets > 0 ? (parseInt(row.ticket_count) / totalOpenTickets) * 100 : 0
@@ -40,42 +40,42 @@ router.get('/stats', async (req, res, next) => {
     // Get user statistics (admin only)
     let userStats = null;
     if (req.user.role === 'admin') {
-      const userStatsResult = await pool.query(`
+      const userStatsResult = await getDatabase().get(`
         SELECT 
           COUNT(*) as total_users,
-          COUNT(*) FILTER (WHERE role = 'client') as clients,
-          COUNT(*) FILTER (WHERE role LIKE 'employee_%') as employees,
-          COUNT(*) FILTER (WHERE role = 'admin') as admins,
-          COUNT(*) FILTER (WHERE is_active = true) as active_users,
-          COUNT(*) FILTER (WHERE last_login > NOW() - INTERVAL '24 hours') as recent_logins
+          SUM(CASE WHEN role = 'client' THEN 1 ELSE 0 END) as clients,
+          SUM(CASE WHEN role LIKE 'employee_%' THEN 1 ELSE 0 END) as employees,
+          SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) as admins,
+          SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_users,
+          SUM(CASE WHEN last_login > datetime('now', '-24 hours') THEN 1 ELSE 0 END) as recent_logins
         FROM users
       `);
-      userStats = userStatsResult.rows[0];
+      userStats = userStatsResult;
     }
 
     // Get personal stats for employees
     let personalStats = null;
     if (req.user.role.startsWith('employee_') || req.user.role === 'admin') {
-      const personalStatsResult = await pool.query(`
+      const personalStatsResult = await getDatabase().get(`
         SELECT 
           COUNT(*) as assigned_tickets,
-          COUNT(*) FILTER (WHERE status = 'in-progress') as in_progress,
-          COUNT(*) FILTER (WHERE status = 'resolved' AND resolved_date::date = CURRENT_DATE) as resolved_today,
-          COUNT(*) FILTER (WHERE status = 'open') as pending
+          SUM(CASE WHEN status = 'in-progress' THEN 1 ELSE 0 END) as in_progress,
+          SUM(CASE WHEN status = 'resolved' AND date(resolved_date) = date('now') THEN 1 ELSE 0 END) as resolved_today,
+          SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as pending
         FROM tickets 
-        WHERE assigned_to = $1
+        WHERE assigned_to = ?
       `, [req.user.id]);
-      personalStats = personalStatsResult.rows[0];
+      personalStats = personalStatsResult;
     }
 
     res.json({
       ticketStats: {
-        total: parseInt(ticketStatsResult.rows[0].total),
-        open: parseInt(ticketStatsResult.rows[0].open),
-        unassigned: parseInt(ticketStatsResult.rows[0].unassigned),
-        inProgress: parseInt(ticketStatsResult.rows[0].in_progress),
-        resolved: parseInt(ticketStatsResult.rows[0].resolved),
-        closed: parseInt(ticketStatsResult.rows[0].closed)
+        total: parseInt(ticketStatsResult.total),
+        open: parseInt(ticketStatsResult.open),
+        unassigned: parseInt(ticketStatsResult.unassigned),
+        inProgress: parseInt(ticketStatsResult.in_progress),
+        resolved: parseInt(ticketStatsResult.resolved),
+        closed: parseInt(ticketStatsResult.closed)
       },
       clientData,
       userStats: userStats ? {
@@ -120,20 +120,20 @@ router.get('/activity', async (req, res, next) => {
     
     // Role-based filtering
     if (req.user.role === 'client') {
-      activityQuery += ' WHERE t.client_id = $1';
+      activityQuery += ' WHERE t.client_id = ?';
       queryParams.push(req.user.id);
     } else if (req.user.role.startsWith('employee_')) {
-      activityQuery += ' WHERE (t.assigned_to = $1 OR ta.user_id = $1)';
-      queryParams.push(req.user.id);
+      activityQuery += ' WHERE (t.assigned_to = ? OR ta.user_id = ?)';
+      queryParams.push(req.user.id, req.user.id);
     }
 
-    activityQuery += ` ORDER BY ta.timestamp DESC LIMIT $${queryParams.length + 1}`;
+    activityQuery += ` ORDER BY ta.timestamp DESC LIMIT ?`;
     queryParams.push(limit);
 
-    const result = await pool.query(activityQuery, queryParams);
+    const result = await getDatabase().all(activityQuery, queryParams);
 
     res.json({
-      activities: result.rows.map(row => ({
+      activities: result.map(row => ({
         action: row.action,
         description: row.description,
         timestamp: row.timestamp,

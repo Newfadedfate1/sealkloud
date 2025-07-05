@@ -1,98 +1,102 @@
-import pg from 'pg';
-import dotenv from 'dotenv';
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-const { Pool } = pg;
+let db;
 
-// Database configuration
-const dbConfig = {
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'sealkloud_helpdesk',
-  password: process.env.DB_PASSWORD || 'password',
-  port: process.env.DB_PORT || 5432,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
-};
-
-export const pool = new Pool(dbConfig);
-
-// Test database connection
-pool.on('connect', () => {
-  console.log('✅ Connected to PostgreSQL database');
-});
-
-pool.on('error', (err) => {
-  console.error('❌ Unexpected error on idle client', err);
-  process.exit(-1);
-});
-
-// Initialize database tables
+// Initialize database connection
 export const initializeDatabase = async () => {
   try {
+    // Open SQLite database
+    db = await open({
+      filename: path.join(__dirname, '../data/sealkloud.db'),
+      driver: sqlite3.Database
+    });
+
     // Create users table
-    await pool.query(`
+    await db.exec(`
       CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        first_name VARCHAR(100) NOT NULL,
-        last_name VARCHAR(100) NOT NULL,
-        role VARCHAR(20) NOT NULL CHECK (role IN ('client', 'employee_l1', 'employee_l2', 'employee_l3', 'admin')),
-        company_id VARCHAR(100) NOT NULL,
-        is_active BOOLEAN DEFAULT true,
-        last_login TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('client', 'employee_l1', 'employee_l2', 'employee_l3', 'admin')),
+        company_id TEXT NOT NULL,
+        is_active INTEGER DEFAULT 1,
+        last_login TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
     `);
 
     // Create tickets table
-    await pool.query(`
+    await db.exec(`
       CREATE TABLE IF NOT EXISTS tickets (
-        id SERIAL PRIMARY KEY,
-        ticket_id VARCHAR(20) UNIQUE NOT NULL,
-        client_name VARCHAR(255) NOT NULL,
-        client_id INTEGER REFERENCES users(id),
-        title VARCHAR(500) NOT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticket_id TEXT UNIQUE NOT NULL,
+        client_name TEXT NOT NULL,
+        client_id INTEGER,
+        title TEXT NOT NULL,
         description TEXT NOT NULL,
-        problem_level VARCHAR(20) NOT NULL CHECK (problem_level IN ('low', 'medium', 'high', 'critical')),
-        status VARCHAR(20) NOT NULL CHECK (status IN ('open', 'unassigned', 'in-progress', 'resolved', 'closed')),
-        assigned_to INTEGER REFERENCES users(id),
-        submitted_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        resolved_date TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+        problem_level TEXT NOT NULL CHECK (problem_level IN ('low', 'medium', 'high', 'critical')),
+        status TEXT NOT NULL CHECK (status IN ('open', 'unassigned', 'in-progress', 'resolved', 'closed')),
+        assigned_to INTEGER,
+        submitted_date TEXT DEFAULT CURRENT_TIMESTAMP,
+        last_updated TEXT DEFAULT CURRENT_TIMESTAMP,
+        resolved_date TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
     `);
 
     // Create ticket_activities table
-    await pool.query(`
+    await db.exec(`
       CREATE TABLE IF NOT EXISTS ticket_activities (
-        id SERIAL PRIMARY KEY,
-        ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
-        user_id INTEGER REFERENCES users(id),
-        action VARCHAR(100) NOT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticket_id INTEGER,
+        user_id INTEGER,
+        action TEXT NOT NULL,
         description TEXT,
-        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+        timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (ticket_id) REFERENCES tickets (id) ON DELETE CASCADE
+      )
     `);
 
-    // Create indexes for better performance
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
-      CREATE INDEX IF NOT EXISTS idx_tickets_assigned_to ON tickets(assigned_to);
-      CREATE INDEX IF NOT EXISTS idx_tickets_client_id ON tickets(client_id);
-      CREATE INDEX IF NOT EXISTS idx_tickets_submitted_date ON tickets(submitted_date);
-      CREATE INDEX IF NOT EXISTS idx_ticket_activities_ticket_id ON ticket_activities(ticket_id);
+    // Create ticket_chats table
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS ticket_chats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticket_id TEXT NOT NULL,
+        sender_id INTEGER NOT NULL,
+        sender_role TEXT NOT NULL,
+        message TEXT NOT NULL,
+        timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+      )
     `);
 
     console.log('✅ Database tables initialized successfully');
+    return db;
   } catch (error) {
     console.error('❌ Error initializing database:', error);
     throw error;
+  }
+};
+
+// Get database instance
+export const getDatabase = () => {
+  if (!db) {
+    throw new Error('Database not initialized. Call initializeDatabase() first.');
+  }
+  return db;
+};
+
+// Close database connection
+export const closeDatabase = async () => {
+  if (db) {
+    await db.close();
   }
 };

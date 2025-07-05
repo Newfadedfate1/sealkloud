@@ -13,6 +13,7 @@ import { AdvancedAnalyticsDashboard } from './AdvancedAnalyticsDashboard';
 import { IntelligentCommunicationTools } from './IntelligentCommunicationTools';
 import { ThemeToggle } from './ThemeToggle';
 import { EmployeeTicketHistory } from './EmployeeTicketHistory';
+import { DataSourceIndicator } from '../DataSourceIndicator';
 
 
 interface EmployeeL1DashboardProps {
@@ -21,7 +22,7 @@ interface EmployeeL1DashboardProps {
 }
 
 export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, onLogout }) => {
-  const { tickets, updateTicket } = useTickets();
+  const { tickets, updateTicket, isUsingMockData, isLoading, refreshTickets } = useTickets();
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -141,6 +142,11 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+      <DataSourceIndicator 
+        isUsingMockData={isUsingMockData}
+        isLoading={isLoading}
+        onRefresh={refreshTickets}
+      />
       {/* Clean Header */}
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -517,6 +523,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
         <IntelligentCommunicationTools
           ticket={selectedTicket}
           userRole="employee_l1"
+          currentUser={user}
           onSendMessage={(message, type) => {
             console.log('Sent message:', message, type);
             setShowCommunicationTools(false);

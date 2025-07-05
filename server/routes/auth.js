@@ -2,7 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
-import { pool } from '../config/database.js';
+import { getDatabase } from '../config/database.js';
 
 const router = express.Router();
 
@@ -20,16 +20,14 @@ router.post('/login', [
     const { email, password } = req.body;
 
     // Find user by email
-    const result = await pool.query(
-      'SELECT * FROM users WHERE email = $1 AND is_active = true',
+    const user = await getDatabase().get(
+      'SELECT * FROM users WHERE email = ? AND is_active = 1',
       [email]
     );
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
-
-    const user = result.rows[0];
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
@@ -38,8 +36,8 @@ router.post('/login', [
     }
 
     // Update last login
-    await pool.query(
-      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
+    await getDatabase().run(
+      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?',
       [user.id]
     );
 
@@ -91,14 +89,14 @@ router.post('/register', [
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
     // Insert user
-    const result = await pool.query(
+    const result = await getDatabase().run(
       `INSERT INTO users (email, password_hash, first_name, last_name, role, company_id)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, email, first_name, last_name, role, company_id, is_active, created_at`,
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [email, passwordHash, firstName, lastName, role, companyId]
     );
 
-    const user = result.rows[0];
+    // Get the inserted user
+    const user = await getDatabase().get('SELECT id, email, first_name, last_name, role, company_id, is_active, created_at FROM users WHERE id = ?', [result.lastID]);
     res.status(201).json({
       user: {
         id: user.id,

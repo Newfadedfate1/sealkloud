@@ -4,8 +4,13 @@ import { ClientDashboard } from './components/Dashboard/ClientDashboard';
 import { EmployeeDashboard } from './components/Dashboard/EmployeeDashboard';
 import { AdminDashboard } from './components/Dashboard/AdminDashboard';
 import { QuickWinsDemo } from './components/QuickWinsDemo';
+import { Phase3Demo } from './components/Phase3Demo/Phase3Demo';
 import { useAuth } from './hooks/useAuth';
 import { ThemeProvider } from './components/ThemeProvider';
+import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary';
+import { ToastProvider } from './components/Toast/ToastContainer';
+import { AccessibilityProvider } from './components/Accessibility/AccessibilityProvider';
+import './components/Accessibility/accessibility.css';
 
 
 function App() {
@@ -23,14 +28,18 @@ function App() {
   // Show loading spinner while checking authentication
   if (isLoading) {
     return (
-      <ThemeProvider>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-          </div>
-        </div>
-      </ThemeProvider>
+      <ErrorBoundary>
+        <ThemeProvider>
+          <ToastProvider>
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+              </div>
+            </div>
+          </ToastProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
     );
   }
 
@@ -38,9 +47,13 @@ function App() {
   if (!isAuthenticated || !user) {
     console.log('Showing login page - not authenticated or no user');
     return (
-      <ThemeProvider>
-        <LoginPage />
-      </ThemeProvider>
+      <ErrorBoundary>
+        <ThemeProvider>
+          <ToastProvider>
+            <LoginPage />
+          </ToastProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
     );
   }
 
@@ -50,9 +63,15 @@ function App() {
   // Special demo route - you can access this by setting user.role to 'demo'
   if (user.role === 'demo') {
     return (
-      <ThemeProvider>
-        <QuickWinsDemo />
-      </ThemeProvider>
+      <ErrorBoundary>
+        <ThemeProvider>
+          <ToastProvider>
+            <AccessibilityProvider>
+              <QuickWinsDemo />
+            </AccessibilityProvider>
+          </ToastProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
     );
   }
   
@@ -61,34 +80,77 @@ function App() {
       case 'client':
         console.log('Rendering ClientDashboard');
         return (
-          <ThemeProvider>
-            <ClientDashboard user={user} onLogout={logout} />
-          </ThemeProvider>
+          <ErrorBoundary>
+            <ThemeProvider>
+              <ToastProvider>
+                <AccessibilityProvider>
+                  <ClientDashboard user={user} onLogout={logout} />
+                </AccessibilityProvider>
+              </ToastProvider>
+            </ThemeProvider>
+          </ErrorBoundary>
         );
       case 'employee_l1':
       case 'employee_l2':
       case 'employee_l3':
         console.log('Rendering EmployeeDashboard');
         return (
-          <ThemeProvider>
-            <EmployeeDashboard user={user} onLogout={logout} />
-          </ThemeProvider>
+          <ErrorBoundary>
+            <ThemeProvider>
+              <ToastProvider>
+                <AccessibilityProvider>
+                  <EmployeeDashboard user={user} onLogout={logout} />
+                </AccessibilityProvider>
+              </ToastProvider>
+            </ThemeProvider>
+          </ErrorBoundary>
         );
       case 'admin':
         console.log('Rendering AdminDashboard');
         return (
-          <ThemeProvider>
-            <AdminDashboard user={user} onLogout={logout} />
-          </ThemeProvider>
+          <ErrorBoundary>
+            <ThemeProvider>
+              <ToastProvider>
+                <AccessibilityProvider>
+                  <AdminDashboard user={user} onLogout={logout} />
+                </AccessibilityProvider>
+              </ToastProvider>
+            </ThemeProvider>
+          </ErrorBoundary>
         );
       default:
         console.error('Unknown user role:', user.role);
         return (
-          <ThemeProvider>
+          <ErrorBoundary>
+            <ThemeProvider>
+              <ToastProvider>
+                <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+                  <div className="text-center">
+                    <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Unknown User Role</h1>
+                    <p className="text-gray-600 dark:text-gray-400 mb-4">Role: {user.role}</p>
+                    <button
+                      onClick={logout}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                    >
+                      Back to Login
+                    </button>
+                  </div>
+                </div>
+              </ToastProvider>
+            </ThemeProvider>
+          </ErrorBoundary>
+        );
+    }
+  } catch (error) {
+    console.error('Error rendering dashboard:', error);
+    return (
+      <ErrorBoundary>
+        <ThemeProvider>
+          <ToastProvider>
             <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
               <div className="text-center">
-                <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Unknown User Role</h1>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">Role: {user.role}</p>
+                <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Error Loading Dashboard</h1>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">Please try logging in again</p>
                 <button
                   onClick={logout}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
@@ -97,26 +159,9 @@ function App() {
                 </button>
               </div>
             </div>
-          </ThemeProvider>
-        );
-    }
-  } catch (error) {
-    console.error('Error rendering dashboard:', error);
-    return (
-      <ThemeProvider>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Error Loading Dashboard</h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">Please try logging in again</p>
-            <button
-              onClick={logout}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-            >
-              Back to Login
-            </button>
-          </div>
-        </div>
-      </ThemeProvider>
+          </ToastProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
     );
   }
 }

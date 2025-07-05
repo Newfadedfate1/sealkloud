@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Ticket, Clock, CheckCircle, AlertTriangle, Search, MessageSquare, User, ArrowRight, Eye, Play, CheckSquare, BarChart3, Zap, BookOpen, Brain, History, Download, Command } from 'lucide-react';
+import { Users, Ticket, Clock, CheckCircle, AlertTriangle, Search, MessageSquare, User, ArrowRight, Eye, Play, CheckSquare, BarChart3, Zap, BookOpen, Brain, History, Download, Command, XCircle, Shield, Settings } from 'lucide-react';
 import { User as UserType } from '../../types/user';
 import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
 import { useTickets } from '../../contexts/TicketContext';
@@ -13,9 +13,16 @@ import { IntelligentCommunicationTools } from './IntelligentCommunicationTools';
 import { ThemeToggle } from './ThemeToggle';
 import { EmployeeTicketHistory } from './EmployeeTicketHistory';
 import { DataSourceIndicator } from '../DataSourceIndicator';
+import { TestStatusIndicator } from './TestStatusIndicator';
+import { TestRunner } from '../Testing/TestRunner';
 // Quick Wins Components
 import { KeyboardShortcuts, useKeyboardShortcuts } from '../KeyboardShortcuts';
 import { ExportModal } from '../ExportModal';
+// Phase 2 Components
+import { Phase2Demo } from '../Phase2Demo/Phase2Demo';
+// Phase 3 Components
+import { useAccessibility } from '../Accessibility/AccessibilityProvider';
+import { AccessibilitySettings } from '../Accessibility/AccessibilitySettings';
 
 
 interface EmployeeL1DashboardProps {
@@ -40,6 +47,14 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   
   // Quick Wins States
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showTestRunner, setShowTestRunner] = useState(false);
+  
+  // Phase 2 States
+  const [showPhase2Demo, setShowPhase2Demo] = useState(false);
+  
+  // Phase 3 States
+  const [showAccessibilitySettings, setShowAccessibilitySettings] = useState(false);
+  const { highContrast, toggleHighContrast, reducedMotion, toggleReducedMotion } = useAccessibility();
   
   // Quick Wins Hooks
   const shortcutDefinitions = [
@@ -230,6 +245,50 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
               >
                 <History className="h-5 w-5" />
               </button>
+              <button
+                onClick={() => setShowTestRunner(true)}
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                title="Test Runner"
+              >
+                <Play className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setShowPhase2Demo(true)}
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                title="Phase 2 Demo"
+              >
+                <Shield className="h-5 w-5" />
+              </button>
+              {/* Phase 3 Accessibility Buttons */}
+              <button
+                onClick={toggleHighContrast}
+                className={`p-2 rounded-lg transition-colors duration-200 ${
+                  highContrast 
+                    ? 'text-blue-600 bg-blue-100 dark:bg-blue-900/20' 
+                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                title={`${highContrast ? 'Disable' : 'Enable'} High Contrast`}
+              >
+                <Eye className="h-5 w-5" />
+              </button>
+              <button
+                onClick={toggleReducedMotion}
+                className={`p-2 rounded-lg transition-colors duration-200 ${
+                  reducedMotion 
+                    ? 'text-blue-600 bg-blue-100 dark:bg-blue-900/20' 
+                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                title={`${reducedMotion ? 'Disable' : 'Enable'} Reduced Motion`}
+              >
+                <Zap className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setShowAccessibilitySettings(true)}
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                title="Accessibility Settings"
+              >
+                <Settings className="h-5 w-5" />
+              </button>
               {/* Quick Wins Buttons */}
               <button
                 onClick={() => setShowExportModal(true)}
@@ -276,6 +335,11 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{userStats.available}</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Available</div>
           </div>
+        </div>
+
+        {/* Test Status Indicator */}
+        <div className="mb-8">
+          <TestStatusIndicator />
         </div>
 
 
@@ -589,6 +653,56 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
           // Simulate export
           await new Promise(resolve => setTimeout(resolve, 2000));
         }}
+      />
+
+      {/* Test Runner Modal */}
+      {showTestRunner && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Test Runner</h2>
+                <button
+                  onClick={() => setShowTestRunner(false)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <XCircle className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <TestRunner />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Phase 2 Demo Modal */}
+      {showPhase2Demo && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Phase 2: Error Handling & User Feedback</h2>
+                <button
+                  onClick={() => setShowPhase2Demo(false)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <XCircle className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <Phase2Demo onBack={() => setShowPhase2Demo(false)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Phase 3 Accessibility Settings Modal */}
+      <AccessibilitySettings
+        isOpen={showAccessibilitySettings}
+        onClose={() => setShowAccessibilitySettings(false)}
       />
     </div>
   );

@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useEffect, useContext, createContext, ReactNode } from 'react';
 import { User, LoginCredentials, AuthState } from '../types/user';
+import { authAPI } from '../services/api';
+import { useToastHelpers } from '../components/Toast/ToastContainer';
 
 // Mock user data for demonstration - matches backend seed data
 const mockUsers: User[] = [
@@ -108,7 +110,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      // Simulate API call delay
+      // Try real API first, fallback to mock
+      try {
+        const response = await authAPI.login(credentials);
+        if (response.success && response.data?.user) {
+          const authenticatedUser = { 
+            ...response.data.user, 
+            lastLogin: new Date() 
+          };
+          
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(authenticatedUser));
+          setAuthState({
+            user: authenticatedUser,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+          });
+          return;
+        }
+      } catch (apiError) {
+        console.log('API login failed, falling back to mock:', apiError);
+      }
+
+      // Fallback to mock authentication
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // Validate input

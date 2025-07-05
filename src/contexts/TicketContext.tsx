@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Ticket } from '../types/ticket';
 import { mockTickets } from '../data/mockTickets';
-import { ticketAPI, checkAPIHealth } from '../services/api';
+import { ticketsAPI, api } from '../services/api';
 
 interface TicketContextType {
   tickets: Ticket[];
@@ -40,27 +40,21 @@ export const TicketProvider: React.FC<TicketProviderProps> = ({ children }) => {
   const loadTickets = async () => {
     setIsLoading(true);
     try {
-      // Check if API is available
-      const apiAvailable = await checkAPIHealth();
-      
-      if (apiAvailable) {
-        // Use real API
-        const result = await ticketAPI.getTickets();
-        setTickets(result.tickets);
+      // Try to use real API
+      const response = await ticketsAPI.getAll();
+      if (response.success && response.data) {
+        setTickets(response.data);
         setIsUsingMockData(false);
         console.log('✅ Using real API data');
       } else {
-        // Fallback to mock data
-        setTickets(mockTickets);
-        setIsUsingMockData(true);
-        console.log('⚠️ API unavailable, using mock data');
+        throw new Error('API returned no data');
       }
     } catch (error) {
       console.error('Error loading tickets:', error);
       // Fallback to mock data on error
       setTickets(mockTickets);
       setIsUsingMockData(true);
-      console.log('⚠️ Error loading tickets, using mock data');
+      console.log('⚠️ API unavailable, using mock data');
     } finally {
       setIsLoading(false);
     }
@@ -70,14 +64,11 @@ export const TicketProvider: React.FC<TicketProviderProps> = ({ children }) => {
     if (!isUsingMockData) {
       try {
         // Try to save to API
-        const newTicket = await ticketAPI.createTicket({
-          title: ticket.title,
-          description: ticket.description,
-          problemLevel: ticket.problemLevel,
-          clientName: ticket.clientName
-        });
-        setTickets(prev => [newTicket, ...prev]);
-        return;
+        const response = await ticketsAPI.create(ticket);
+        if (response.success && response.data) {
+          setTickets(prev => [response.data, ...prev]);
+          return;
+        }
       } catch (error) {
         console.error('Error creating ticket via API:', error);
         // Fallback to local state
@@ -92,11 +83,13 @@ export const TicketProvider: React.FC<TicketProviderProps> = ({ children }) => {
     if (!isUsingMockData) {
       try {
         // Try to update via API
-        const updatedTicket = await ticketAPI.updateTicket(ticketId, updates);
-        setTickets(prev => prev.map(ticket => 
-          ticket.id === ticketId ? updatedTicket : ticket
-        ));
-        return;
+        const response = await ticketsAPI.update(ticketId, updates);
+        if (response.success && response.data) {
+          setTickets(prev => prev.map(ticket => 
+            ticket.id === ticketId ? response.data : ticket
+          ));
+          return;
+        }
       } catch (error) {
         console.error('Error updating ticket via API:', error);
         // Fallback to local state

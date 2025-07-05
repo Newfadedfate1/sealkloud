@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { X, AlertTriangle, FileText, Tag, Zap, Save, User, HelpCircle } from 'lucide-react';
 import { ProblemLevel } from '../../types/ticket';
 import { User as UserType } from '../../types/user';
+import { useFormValidation, EnhancedInput, ValidationRules } from '../FormValidation/FormValidator';
+import { useToastHelpers } from '../Toast/ToastContainer';
 
 interface CreateTicketModalProps {
   isOpen: boolean;
@@ -57,40 +59,41 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   onSubmit,
   currentUser
 }) => {
-  const [formData, setFormData] = useState({
+  const toast = useToastHelpers();
+  
+  // Form validation rules
+  const validationRules: ValidationRules = {
+    title: { required: true, minLength: 5, maxLength: 100 },
+    description: { required: true, minLength: 10, maxLength: 1000 },
+    category: { required: true },
+  };
+
+  const {
+    formData,
+    errors,
+    touched,
+    isValid,
+    updateField,
+    touchField,
+    validateAll,
+    setIsSubmitting,
+    isSubmitting,
+  } = useFormValidation({
     title: '',
     description: '',
     category: '',
     problemLevel: 'medium' as ProblemLevel
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  }, validationRules);
 
   if (!isOpen) return null;
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.title.trim()) {
-      newErrors.title = 'Please enter a title';
-    }
-
-    if (!formData.description.trim()) {
-      newErrors.description = 'Please describe your issue';
-    }
-
-    if (!formData.category) {
-      newErrors.category = 'Please select a category';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) return;
+    if (!validateAll()) {
+      toast.error('Validation Error', 'Please fix the errors in the form before submitting.');
+      return;
+    }
 
     setIsSubmitting(true);
     
@@ -98,24 +101,19 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
       await new Promise(resolve => setTimeout(resolve, 1000));
       onSubmit(formData);
       
-      setFormData({
-        title: '',
-        description: '',
-        category: '',
-        problemLevel: 'medium'
-      });
-      setErrors({});
+      // Reset form
+      updateField('title', '');
+      updateField('description', '');
+      updateField('category', '');
+      updateField('problemLevel', 'medium');
+      
+      toast.success('Ticket Created', 'Your support ticket has been created successfully.');
+      onClose();
     } catch (error) {
       console.error('Error creating ticket:', error);
+      toast.error('Creation Failed', 'Failed to create ticket. Please try again.');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
@@ -159,7 +157,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
                 <button
                   key={category.value}
                   type="button"
-                  onClick={() => handleInputChange('category', category.value)}
+                  onClick={() => updateField('category', category.value)}
                   className={`p-3 rounded-lg border text-left transition-colors ${
                     formData.category === category.value
                       ? 'border-blue-500 bg-blue-50'
@@ -185,10 +183,11 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
               type="text"
               id="title"
               value={formData.title}
-              onChange={(e) => handleInputChange('title', e.target.value)}
+              onChange={(e) => updateField('title', e.target.value)}
+              onBlur={() => touchField('title')}
               placeholder="e.g., Cannot log into my account"
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.title ? 'border-red-300' : 'border-gray-300'
+                errors.title && touched.title ? 'border-red-300' : 'border-gray-300'
               }`}
               disabled={isSubmitting}
             />
@@ -206,14 +205,15 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
               id="description"
               rows={5}
               value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
+              onChange={(e) => updateField('description', e.target.value)}
+              onBlur={() => touchField('description')}
               placeholder="Please include:
 • What you were trying to do
 • What happened instead
 • When this started
 • Any error messages"
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
-                errors.description ? 'border-red-300' : 'border-gray-300'
+                errors.description && touched.description ? 'border-red-300' : 'border-gray-300'
               }`}
               disabled={isSubmitting}
             />
@@ -232,7 +232,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
                 <button
                   key={level.value}
                   type="button"
-                  onClick={() => handleInputChange('problemLevel', level.value)}
+                  onClick={() => updateField('problemLevel', level.value)}
                   className={`w-full p-3 rounded-lg border text-left transition-colors ${
                     formData.problemLevel === level.value
                       ? 'border-blue-500 bg-blue-50'

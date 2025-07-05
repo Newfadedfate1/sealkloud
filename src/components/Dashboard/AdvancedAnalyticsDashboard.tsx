@@ -66,7 +66,7 @@ interface AnalyticsData {
 }
 
 interface AdvancedAnalyticsDashboardProps {
-  userRole: 'employee_l1' | 'employee_l2' | 'employee_l3';
+  userRole: 'employee_l1' | 'employee_l2' | 'employee_l3' | 'admin';
   userId: string;
   onClose: () => void;
   onExportData?: (data: any) => void;

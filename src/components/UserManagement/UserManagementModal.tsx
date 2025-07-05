@@ -87,6 +87,56 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
           companyId: 'sealkloud',
           isActive: false,
           lastLogin: new Date('2024-01-10T11:30:00')
+        },
+        {
+          id: '6',
+          email: 'support1@sealkloud.com',
+          firstName: 'Sarah',
+          lastName: 'Support',
+          role: 'employee_l1',
+          companyId: 'sealkloud',
+          isActive: true,
+          lastLogin: new Date('2024-01-15T08:30:00')
+        },
+        {
+          id: '7',
+          email: 'support2@sealkloud.com',
+          firstName: 'Mike',
+          lastName: 'Technician',
+          role: 'employee_l2',
+          companyId: 'sealkloud',
+          isActive: true,
+          lastLogin: new Date('2024-01-14T16:45:00')
+        },
+        {
+          id: '8',
+          email: 'client2@sealkloud.com',
+          firstName: 'Alice',
+          lastName: 'Customer',
+          role: 'client',
+          companyId: 'sealkloud',
+          isActive: true,
+          lastLogin: new Date('2024-01-15T12:20:00')
+        },
+        {
+          id: '9',
+          email: 'client3@sealkloud.com',
+          firstName: 'Bob',
+          lastName: 'User',
+          role: 'client',
+          companyId: 'sealkloud',
+          isActive: false,
+          lastLogin: new Date('2024-01-12T14:10:00')
+        },
+        {
+          id: '10',
+          email: 'expert@sealkloud.com',
+          firstName: 'Dr. Smith',
+          lastName: 'Expert',
+          role: 'employee_l3',
+          companyId: 'sealkloud',
+          isActive: true,
+          lastLogin: new Date('2024-01-15T09:15:00')
         }
       ]);
     }
@@ -220,7 +270,13 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
 
           {/* Users Table */}
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto max-h-96">
+            <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Showing {filteredUsers.length} of {users.length} users</span>
+                <span className="text-sm text-gray-500">Scroll to see all users</span>
+              </div>
+            </div>
+            <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '60vh' }}>
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>

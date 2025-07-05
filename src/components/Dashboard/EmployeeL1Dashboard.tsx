@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Ticket, Clock, CheckCircle, AlertTriangle, Plus, Search, MessageSquare, User, ArrowRight, Eye, Play, CheckSquare, BarChart3, Zap, BookOpen, Settings, Brain } from 'lucide-react';
+import { Users, Ticket, Clock, CheckCircle, AlertTriangle, Plus, Search, MessageSquare, User, ArrowRight, Eye, Play, CheckSquare, BarChart3, Zap, BookOpen, Settings, Brain, History } from 'lucide-react';
 import { User as UserType } from '../../types/user';
 import { TicketStatsCard } from './TicketStatsCard';
 import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
@@ -12,6 +12,7 @@ import { SmartWorkflowAutomation } from './SmartWorkflowAutomation';
 import { AdvancedAnalyticsDashboard } from './AdvancedAnalyticsDashboard';
 import { IntelligentCommunicationTools } from './IntelligentCommunicationTools';
 import { ThemeToggle } from './ThemeToggle';
+import { EmployeeTicketHistory } from './EmployeeTicketHistory';
 
 interface EmployeeL1DashboardProps {
   user: UserType;
@@ -31,6 +32,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   const [showWorkflowAutomation, setShowWorkflowAutomation] = useState(false);
   const [showAdvancedAnalytics, setShowAdvancedAnalytics] = useState(false);
   const [showCommunicationTools, setShowCommunicationTools] = useState(false);
+  const [showTicketHistory, setShowTicketHistory] = useState(false);
   
   // Filter tickets for L1 - basic tickets and unassigned
   const myTickets = tickets.filter(ticket => ticket.assignedTo === user.id);
@@ -202,6 +204,13 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                 title="Communication Tools"
               >
                 <MessageSquare className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setShowTicketHistory(true)}
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                title="My Ticket History"
+              >
+                <History className="h-5 w-5" />
               </button>
               <ThemeToggle />
               <button
@@ -516,6 +525,15 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
             setShowCommunicationTools(false);
           }}
           onClose={() => setShowCommunicationTools(false)}
+        />
+      )}
+
+      {/* Ticket History Modal */}
+      {showTicketHistory && (
+        <EmployeeTicketHistory
+          userId={user.id}
+          userName={`${user.firstName} ${user.lastName}`}
+          onClose={() => setShowTicketHistory(false)}
         />
       )}
     </div>

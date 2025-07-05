@@ -17,6 +17,7 @@ import { ReportScheduler } from '../Admin/ReportScheduler';
 import { CustomDashboard } from './CustomDashboard';
 import { WorkflowAutomation } from '../Admin/WorkflowAutomation';
 import { ApiWebhookSupport } from '../Admin/ApiWebhookSupport';
+import { AdvancedAnalyticsDashboard } from './AdvancedAnalyticsDashboard';
 
 interface AdminDashboardProps {
   user: User;
@@ -25,6 +26,7 @@ interface AdminDashboardProps {
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   const [showUserManagement, setShowUserManagement] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [tickets, setTickets] = useState(mockTickets);
   const [selectedTimeframe, setSelectedTimeframe] = useState('7d');
   const [notifications, setNotifications] = useState<Notification[]>([
@@ -375,7 +377,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
               <Users className="h-6 w-6" />
               <span className="text-sm font-medium">Manage Users</span>
             </button>
-            <button className="bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 text-green-700 dark:text-green-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors">
+            <button 
+              onClick={() => setShowAnalytics(true)}
+              className="bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 text-green-700 dark:text-green-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
+            >
               <BarChart3 className="h-6 w-6" />
               <span className="text-sm font-medium">Analytics</span>
             </button>
@@ -471,6 +476,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
         onClose={() => setShowUserManagement(false)}
         currentUser={user}
       />
+
+      {/* Analytics Modal */}
+      {showAnalytics && (
+        <AdvancedAnalyticsDashboard
+          userRole="admin"
+          userId={user.id}
+          onClose={() => setShowAnalytics(false)}
+          onExportData={(data) => {
+            console.log('Exporting analytics data:', data);
+            // Implement export functionality
+          }}
+        />
+      )}
 
       {/* Phase 2 Modals */}
       {showTwoFactorAuth && (

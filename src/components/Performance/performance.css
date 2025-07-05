@@ -1,0 +1,527 @@
+/* Performance Optimization CSS */
+
+/* Loading Skeletons */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 4px;
+}
+
+.skeleton-text {
+  height: 1em;
+  margin-bottom: 0.5em;
+}
+
+.skeleton-text:last-child {
+  width: 60%;
+}
+
+.skeleton-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.skeleton-button {
+  height: 36px;
+  width: 100px;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Performance-focused animations */
+.performance-fade-in {
+  animation: performance-fade-in 0.3s ease-out;
+}
+
+.performance-slide-up {
+  animation: performance-slide-up 0.3s ease-out;
+}
+
+.performance-scale-in {
+  animation: performance-scale-in 0.2s ease-out;
+}
+
+@keyframes performance-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes performance-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes performance-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Virtualized list optimizations */
+.virtualized-container {
+  will-change: transform;
+  contain: layout style paint;
+}
+
+.virtualized-item {
+  contain: layout style;
+  transform: translateZ(0); /* Force hardware acceleration */
+}
+
+/* Image optimization */
+.optimized-image {
+  background-color: #f3f4f6;
+  transition: opacity 0.3s ease;
+}
+
+.optimized-image.loaded {
+  background-color: transparent;
+}
+
+/* Performance monitoring indicators */
+.performance-indicator {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+  pointer-events: none;
+}
+
+.performance-indicator.good {
+  background: rgba(34, 197, 94, 0.9);
+}
+
+.performance-indicator.warning {
+  background: rgba(245, 158, 11, 0.9);
+}
+
+.performance-indicator.poor {
+  background: rgba(239, 68, 68, 0.9);
+}
+
+/* Cache status indicators */
+.cache-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.cache-status.hit {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+}
+
+.cache-status.miss {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.cache-status.stale {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+}
+
+/* Performance metrics cards */
+.metric-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.2s ease;
+  contain: layout style;
+}
+
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.metric-card.good {
+  border-left: 4px solid #16a34a;
+}
+
+.metric-card.warning {
+  border-left: 4px solid #d97706;
+}
+
+.metric-card.poor {
+  border-left: 4px solid #dc2626;
+}
+
+/* Bundle size indicators */
+.bundle-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.bundle-size.small {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+}
+
+.bundle-size.medium {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+}
+
+.bundle-size.large {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+/* Performance insights */
+.performance-insight {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 12px;
+  margin: 8px 0;
+  font-size: 14px;
+  color: #92400e;
+}
+
+.performance-insight.critical {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+.performance-insight.info {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  color: #1e40af;
+}
+
+/* Memory usage indicator */
+.memory-usage {
+  width: 100%;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.memory-usage-bar {
+  height: 100%;
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.memory-usage-bar.low {
+  background: #16a34a;
+}
+
+.memory-usage-bar.medium {
+  background: #d97706;
+}
+
+.memory-usage-bar.high {
+  background: #dc2626;
+}
+
+/* Performance settings toggles */
+.performance-toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  background: #d1d5db;
+  border-radius: 12px;
+  transition: background 0.2s ease;
+  cursor: pointer;
+}
+
+.performance-toggle.enabled {
+  background: #3b82f6;
+}
+
+.performance-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.performance-toggle.enabled .performance-toggle-thumb {
+  transform: translateX(20px);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .skeleton {
+    background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+  }
+  
+  .metric-card {
+    background: #1f2937;
+    border-color: #374151;
+    color: white;
+  }
+  
+  .performance-insight {
+    background: #451a03;
+    border-color: #f59e0b;
+    color: #fbbf24;
+  }
+  
+  .performance-insight.critical {
+    background: #450a0a;
+    border-color: #ef4444;
+    color: #fca5a5;
+  }
+  
+  .performance-insight.info {
+    background: #1e3a8a;
+    border-color: #3b82f6;
+    color: #93c5fd;
+  }
+  
+  .memory-usage {
+    background: #374151;
+  }
+  
+  .performance-toggle {
+    background: #4b5563;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+  
+  .performance-fade-in,
+  .performance-slide-up,
+  .performance-scale-in {
+    animation: none;
+  }
+  
+  .metric-card:hover {
+    transform: none;
+  }
+  
+  .memory-usage-bar {
+    transition: none;
+  }
+  
+  .performance-toggle-thumb {
+    transition: none;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .skeleton {
+    background: #000;
+  }
+  
+  .metric-card {
+    border-width: 2px;
+  }
+  
+  .performance-toggle {
+    border: 2px solid #000;
+  }
+}
+
+/* Print styles */
+@media print {
+  .performance-indicator,
+  .performance-toggle,
+  .cache-status {
+    display: none !important;
+  }
+  
+  .metric-card {
+    break-inside: avoid;
+    border: 1px solid #000;
+  }
+}
+
+/* Focus indicators for accessibility */
+.performance-toggle:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.metric-card:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Performance monitoring overlay */
+.performance-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-family: monospace;
+}
+
+.performance-overlay-content {
+  background: #1f2937;
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* Performance graph styles */
+.performance-graph {
+  width: 100%;
+  height: 200px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.performance-graph-line {
+  stroke: #3b82f6;
+  stroke-width: 2;
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.performance-graph-area {
+  fill: url(#performance-gradient);
+  opacity: 0.3;
+}
+
+/* Responsive optimizations */
+@media (max-width: 768px) {
+  .performance-indicator {
+    top: 5px;
+    right: 5px;
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+  
+  .metric-card {
+    padding: 12px;
+  }
+  
+  .performance-overlay-content {
+    padding: 16px;
+    margin: 16px;
+  }
+}
+
+/* Performance-critical animations */
+@keyframes critical-loading {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.critical-loading {
+  animation: critical-loading 1s linear infinite;
+  will-change: transform;
+}
+
+/* GPU acceleration hints */
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Content-visibility optimization */
+.content-visibility-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px;
+}
+
+/* Container queries for performance */
+@container (min-width: 400px) {
+  .metric-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+  }
+}
+
+/* Performance monitoring badges */
+.performance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.performance-badge.fast {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.performance-badge.slow {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.performance-badge.optimal {
+  background: #dbeafe;
+  color: #1e40af;
+} 

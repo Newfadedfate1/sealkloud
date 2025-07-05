@@ -10,7 +10,9 @@ import { ThemeProvider } from './components/ThemeProvider';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary';
 import { ToastProvider } from './components/Toast/ToastContainer';
 import { AccessibilityProvider } from './components/Accessibility/AccessibilityProvider';
+import { PerformanceProvider } from './components/Performance/PerformanceProvider';
 import './components/Accessibility/accessibility.css';
+import './components/Performance/performance.css';
 
 
 function App() {
@@ -84,7 +86,9 @@ function App() {
             <ThemeProvider>
               <ToastProvider>
                 <AccessibilityProvider>
-                  <ClientDashboard user={user} onLogout={logout} />
+                  <PerformanceProvider>
+                    <ClientDashboard user={user} onLogout={logout} />
+                  </PerformanceProvider>
                 </AccessibilityProvider>
               </ToastProvider>
             </ThemeProvider>
@@ -99,7 +103,9 @@ function App() {
             <ThemeProvider>
               <ToastProvider>
                 <AccessibilityProvider>
-                  <EmployeeDashboard user={user} onLogout={logout} />
+                  <PerformanceProvider>
+                    <EmployeeDashboard user={user} onLogout={logout} />
+                  </PerformanceProvider>
                 </AccessibilityProvider>
               </ToastProvider>
             </ThemeProvider>
@@ -112,7 +118,9 @@ function App() {
             <ThemeProvider>
               <ToastProvider>
                 <AccessibilityProvider>
-                  <AdminDashboard user={user} onLogout={logout} />
+                  <PerformanceProvider>
+                    <AdminDashboard user={user} onLogout={logout} />
+                  </PerformanceProvider>
                 </AccessibilityProvider>
               </ToastProvider>
             </ThemeProvider>

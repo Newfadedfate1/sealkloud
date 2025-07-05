@@ -23,6 +23,8 @@ import { Phase2Demo } from '../Phase2Demo/Phase2Demo';
 // Phase 3 Components
 import { useAccessibility } from '../Accessibility/AccessibilityProvider';
 import { AccessibilitySettings } from '../Accessibility/AccessibilitySettings';
+// Phase 4 Components
+import { Phase4Demo } from '../Phase4Demo/Phase4Demo';
 
 
 interface EmployeeL1DashboardProps {
@@ -55,6 +57,9 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   // Phase 3 States
   const [showAccessibilitySettings, setShowAccessibilitySettings] = useState(false);
   const { highContrast, toggleHighContrast, reducedMotion, toggleReducedMotion } = useAccessibility();
+  
+  // Phase 4 States
+  const [showPhase4Demo, setShowPhase4Demo] = useState(false);
   
   // Quick Wins Hooks
   const shortcutDefinitions = [
@@ -188,129 +193,174 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                 <p className="text-sm text-gray-600 dark:text-gray-400 transition-colors duration-200">Welcome back, {user.firstName}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowPerformanceMetrics(true)}
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                title="Performance Metrics"
-              >
-                <BarChart3 className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setShowQuickActions(true)}
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                title="Quick Actions"
-              >
-                <Zap className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setShowKnowledgeBase(true)}
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                title="Knowledge Base"
-              >
-                <BookOpen className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setShowAIAssistant(true)}
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                title="AI Assistant"
-              >
-                <Brain className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setShowWorkflowAutomation(true)}
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                title="Workflow Automation"
-              >
-                <Zap className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setShowAdvancedAnalytics(true)}
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                title="Advanced Analytics"
-              >
-                <BarChart3 className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setShowCommunicationTools(true)}
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                title="Communication Tools"
-              >
-                <MessageSquare className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setShowTicketHistory(true)}
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                title="My Ticket History"
-              >
-                <History className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setShowTestRunner(true)}
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                title="Test Runner"
-              >
-                <Play className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setShowPhase2Demo(true)}
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                title="Phase 2 Demo"
-              >
-                <Shield className="h-5 w-5" />
-              </button>
-              {/* Phase 3 Accessibility Buttons */}
-              <button
-                onClick={toggleHighContrast}
-                className={`p-2 rounded-lg transition-colors duration-200 ${
-                  highContrast 
-                    ? 'text-blue-600 bg-blue-100 dark:bg-blue-900/20' 
-                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-                title={`${highContrast ? 'Disable' : 'Enable'} High Contrast`}
-              >
-                <Eye className="h-5 w-5" />
-              </button>
-              <button
-                onClick={toggleReducedMotion}
-                className={`p-2 rounded-lg transition-colors duration-200 ${
-                  reducedMotion 
-                    ? 'text-blue-600 bg-blue-100 dark:bg-blue-900/20' 
-                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-                title={`${reducedMotion ? 'Disable' : 'Enable'} Reduced Motion`}
-              >
-                <Zap className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setShowAccessibilitySettings(true)}
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                title="Accessibility Settings"
-              >
-                <Settings className="h-5 w-5" />
-              </button>
-              {/* Quick Wins Buttons */}
-              <button
-                onClick={() => setShowExportModal(true)}
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                title="Export Tickets"
-              >
-                <Download className="h-5 w-5" />
-              </button>
-              <button
-                onClick={toggleShortcuts}
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                title="Keyboard Shortcuts"
-              >
-                <Command className="h-5 w-5" />
-              </button>
-              <ThemeToggle />
-              <button
-                onClick={onLogout}
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white px-3 py-2 text-sm transition-colors duration-200"
-              >
-                Sign Out
-              </button>
+            <div className="flex items-center gap-2">
+              {/* Main Tools - Most Used */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setShowQuickActions(true)}
+                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                  title="Quick Actions"
+                >
+                  <Zap className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => setShowKnowledgeBase(true)}
+                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                  title="Knowledge Base"
+                >
+                  <BookOpen className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => setShowTicketHistory(true)}
+                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                  title="My Ticket History"
+                >
+                  <History className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Separator */}
+              <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+
+              {/* Advanced Tools - Dropdown Menu */}
+              <div className="relative group">
+                <button
+                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                  title="Advanced Tools"
+                >
+                  <BarChart3 className="h-5 w-5" />
+                </button>
+                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  <div className="py-1">
+                    <button
+                      onClick={() => setShowPerformanceMetrics(true)}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      Performance Metrics
+                    </button>
+                    <button
+                      onClick={() => setShowAdvancedAnalytics(true)}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      Advanced Analytics
+                    </button>
+                    <button
+                      onClick={() => setShowAIAssistant(true)}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <Brain className="h-4 w-4" />
+                      AI Assistant
+                    </button>
+                    <button
+                      onClick={() => setShowWorkflowAutomation(true)}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <Zap className="h-4 w-4" />
+                      Workflow Automation
+                    </button>
+                    <button
+                      onClick={() => setShowCommunicationTools(true)}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      Communication Tools
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Separator */}
+              <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+
+              {/* Demos & Testing */}
+              <div className="relative group">
+                <button
+                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                  title="Demos & Testing"
+                >
+                  <Play className="h-5 w-5" />
+                </button>
+                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  <div className="py-1">
+                    <button
+                      onClick={() => setShowTestRunner(true)}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <Play className="h-4 w-4" />
+                      Test Runner
+                    </button>
+                    <button
+                      onClick={() => setShowPhase2Demo(true)}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <Shield className="h-4 w-4" />
+                      Phase 2 Demo
+                    </button>
+                    <button
+                      onClick={() => setShowPhase4Demo(true)}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <Zap className="h-4 w-4" />
+                      Performance Demo
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Separator */}
+              <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+
+              {/* Settings & Utilities */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setShowExportModal(true)}
+                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                  title="Export Tickets"
+                >
+                  <Download className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={toggleShortcuts}
+                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                  title="Keyboard Shortcuts"
+                >
+                  <Command className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={toggleHighContrast}
+                  className={`p-2 rounded-lg transition-colors duration-200 ${
+                    highContrast 
+                      ? 'text-blue-600 bg-blue-100 dark:bg-blue-900/20' 
+                      : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                  title={`${highContrast ? 'Disable' : 'Enable'} High Contrast`}
+                >
+                  <Eye className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => setShowAccessibilitySettings(true)}
+                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                  title="Accessibility Settings"
+                >
+                  <Settings className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Separator */}
+              <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+
+              {/* Theme & Logout */}
+              <div className="flex items-center gap-1">
+                <ThemeToggle />
+                <button
+                  onClick={onLogout}
+                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white px-3 py-2 text-sm transition-colors duration-200"
+                >
+                  Sign Out
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -704,6 +754,28 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
         isOpen={showAccessibilitySettings}
         onClose={() => setShowAccessibilitySettings(false)}
       />
+
+      {/* Phase 4 Performance Demo Modal */}
+      {showPhase4Demo && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Phase 4: Performance Optimization</h2>
+                <button
+                  onClick={() => setShowPhase4Demo(false)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <XCircle className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <Phase4Demo />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

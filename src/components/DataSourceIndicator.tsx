@@ -1,17 +1,40 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Database, Wifi, WifiOff } from 'lucide-react';
 
 interface DataSourceIndicatorProps {
   isUsingMockData: boolean;
   isLoading: boolean;
   onRefresh?: () => void;
+  autoHideDelay?: number; // Time in milliseconds before auto-hiding
 }
 
 export const DataSourceIndicator: React.FC<DataSourceIndicatorProps> = ({
   isUsingMockData,
   isLoading,
-  onRefresh
+  onRefresh,
+  autoHideDelay = 3000 // Default 3 seconds
 }) => {
+  const [isVisible, setIsVisible] = useState(true);
+
+  // Auto-hide the indicator after the specified delay
+  useEffect(() => {
+    if (!isLoading) {
+      const timer = setTimeout(() => {
+        setIsVisible(false);
+      }, autoHideDelay);
+
+      return () => clearTimeout(timer);
+    } else {
+      // Show indicator when loading
+      setIsVisible(true);
+    }
+  }, [isLoading, autoHideDelay]);
+
+  // Show indicator when data source changes
+  useEffect(() => {
+    setIsVisible(true);
+  }, [isUsingMockData]);
+
   if (isLoading) {
     return (
       <div className="fixed top-4 right-4 z-50">
@@ -23,9 +46,13 @@ export const DataSourceIndicator: React.FC<DataSourceIndicatorProps> = ({
     );
   }
 
+  if (!isVisible) {
+    return null;
+  }
+
   return (
     <div className="fixed top-4 right-4 z-50">
-      <div className={`px-3 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm transition-colors duration-200 ${
+      <div className={`px-3 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm transition-all duration-300 ${
         isUsingMockData 
           ? 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200' 
           : 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'

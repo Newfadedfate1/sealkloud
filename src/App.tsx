@@ -3,6 +3,7 @@ import { LoginPage } from './components/Login/LoginPage';
 import { ClientDashboard } from './components/Dashboard/ClientDashboard';
 import { EmployeeDashboard } from './components/Dashboard/EmployeeDashboard';
 import { AdminDashboard } from './components/Dashboard/AdminDashboard';
+import { QuickWinsDemo } from './components/QuickWinsDemo';
 import { useAuth } from './hooks/useAuth';
 import { ThemeProvider } from './components/ThemeProvider';
 
@@ -45,6 +46,15 @@ function App() {
 
   // Route based on user role
   console.log('Routing user with role:', user.role);
+  
+  // Special demo route - you can access this by setting user.role to 'demo'
+  if (user.role === 'demo') {
+    return (
+      <ThemeProvider>
+        <QuickWinsDemo />
+      </ThemeProvider>
+    );
+  }
   
   try {
     switch (user.role) {

@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Users, Ticket, Clock, CheckCircle, AlertTriangle, Plus, Search, MessageSquare, User, ArrowRight, Eye, Play, CheckSquare, BarChart3, Zap, BookOpen, Settings, Brain, History } from 'lucide-react';
+import React, { useState } from 'react';
+import { Users, Ticket, Clock, CheckCircle, AlertTriangle, Search, MessageSquare, User, ArrowRight, Eye, Play, CheckSquare, BarChart3, Zap, BookOpen, Brain, History, Download, Command } from 'lucide-react';
 import { User as UserType } from '../../types/user';
-import { TicketStatsCard } from './TicketStatsCard';
 import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
 import { useTickets } from '../../contexts/TicketContext';
 import { EmployeePerformanceMetrics } from './EmployeePerformanceMetrics';
@@ -14,6 +13,9 @@ import { IntelligentCommunicationTools } from './IntelligentCommunicationTools';
 import { ThemeToggle } from './ThemeToggle';
 import { EmployeeTicketHistory } from './EmployeeTicketHistory';
 import { DataSourceIndicator } from '../DataSourceIndicator';
+// Quick Wins Components
+import { KeyboardShortcuts, useKeyboardShortcuts } from '../KeyboardShortcuts';
+import { ExportModal } from '../ExportModal';
 
 
 interface EmployeeL1DashboardProps {
@@ -35,6 +37,17 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   const [showAdvancedAnalytics, setShowAdvancedAnalytics] = useState(false);
   const [showCommunicationTools, setShowCommunicationTools] = useState(false);
   const [showTicketHistory, setShowTicketHistory] = useState(false);
+  
+  // Quick Wins States
+  const [showExportModal, setShowExportModal] = useState(false);
+  
+  // Quick Wins Hooks
+  const shortcutDefinitions = [
+    { key: 'n', description: 'New ticket', action: () => console.log('New ticket'), category: 'ticket' as const },
+    { key: 's', description: 'Search', action: () => console.log('Search'), category: 'navigation' as const },
+    { key: 'e', description: 'Export', action: () => setShowExportModal(true), category: 'system' as const },
+  ];
+  const { isShortcutsOpen, toggleShortcuts, shortcuts } = useKeyboardShortcuts(shortcutDefinitions);
   
   // Filter tickets for L1 - basic tickets and unassigned
   const myTickets = tickets.filter(ticket => ticket.assignedTo === user.id);
@@ -216,6 +229,21 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                 title="My Ticket History"
               >
                 <History className="h-5 w-5" />
+              </button>
+              {/* Quick Wins Buttons */}
+              <button
+                onClick={() => setShowExportModal(true)}
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                title="Export Tickets"
+              >
+                <Download className="h-5 w-5" />
+              </button>
+              <button
+                onClick={toggleShortcuts}
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                title="Keyboard Shortcuts"
+              >
+                <Command className="h-5 w-5" />
               </button>
               <ThemeToggle />
               <button
@@ -544,6 +572,24 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
           onClose={() => setShowTicketHistory(false)}
         />
       )}
+
+      {/* Quick Wins Modals */}
+      <KeyboardShortcuts
+        isOpen={isShortcutsOpen}
+        onClose={toggleShortcuts}
+        shortcuts={shortcuts}
+      />
+
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        data={{ tickets: tickets, type: 'tickets' }}
+        onExport={async (format, filters) => {
+          console.log('Exporting tickets:', format, filters);
+          // Simulate export
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }}
+      />
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Ticket, Clock, CheckCircle, AlertTriangle, Shield, Search, MessageSquare, Database, Server, Code, Eye, CheckSquare, BarChart3, BookOpen, Plus, Brain, Settings } from 'lucide-react';
+import { Zap, Ticket, Clock, CheckCircle, AlertTriangle, Shield, Search, MessageSquare, Database, Server, Code, Eye, CheckSquare, BarChart3, BookOpen, Plus, Brain, Settings, FileText, Activity } from 'lucide-react';
 import { User as UserType } from '../../types/user';
 import { TicketStatsCard } from './TicketStatsCard';
 import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
@@ -11,6 +11,7 @@ import { AITicketAssistant } from './AITicketAssistant';
 import { SmartWorkflowAutomation } from './SmartWorkflowAutomation';
 import { AdvancedAnalyticsDashboard } from './AdvancedAnalyticsDashboard';
 import { IntelligentCommunicationTools } from './IntelligentCommunicationTools';
+import { ThemeToggle } from './ThemeToggle';
 
 interface EmployeeL3DashboardProps {
   user: UserType;
@@ -87,6 +88,18 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
       case 'critical-flag':
         // Handle critical flag action
         break;
+      case 'database-diagnostic':
+        // Handle database diagnostic action
+        break;
+      case 'system-logs':
+        // Handle system logs action
+        break;
+      case 'performance-monitor':
+        // Handle performance monitor action
+        break;
+      case 'security-audit':
+        // Handle security audit action
+        break;
       default:
         console.log('Unknown action:', action);
     }
@@ -130,73 +143,74 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
       {/* Clean Header */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="bg-red-100 p-2 rounded-lg">
-                <Zap className="h-6 w-6 text-red-600" />
+              <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-lg transition-colors duration-200">
+                <Zap className="h-6 w-6 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Level 3 Expert Support</h1>
-                <p className="text-sm text-gray-600">Welcome back, {user.firstName}</p>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white transition-colors duration-200">Level 3 Expert Support</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400 transition-colors duration-200">Welcome back, {user.firstName}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowPerformanceMetrics(true)}
-                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                 title="Performance Metrics"
               >
                 <BarChart3 className="h-5 w-5" />
               </button>
               <button
                 onClick={() => setShowQuickActions(true)}
-                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                 title="Quick Actions"
               >
                 <Zap className="h-5 w-5" />
               </button>
               <button
                 onClick={() => setShowKnowledgeBase(true)}
-                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                 title="Knowledge Base"
               >
                 <BookOpen className="h-5 w-5" />
               </button>
               <button
                 onClick={() => setShowAIAssistant(true)}
-                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                 title="AI Assistant"
               >
                 <Brain className="h-5 w-5" />
               </button>
               <button
                 onClick={() => setShowWorkflowAutomation(true)}
-                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                 title="Workflow Automation"
               >
                 <Zap className="h-5 w-5" />
               </button>
               <button
                 onClick={() => setShowAdvancedAnalytics(true)}
-                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                 title="Advanced Analytics"
               >
                 <BarChart3 className="h-5 w-5" />
               </button>
               <button
                 onClick={() => setShowCommunicationTools(true)}
-                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                 title="Communication Tools"
               >
                 <MessageSquare className="h-5 w-5" />
               </button>
+              <ThemeToggle />
               <button
                 onClick={onLogout}
-                className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm"
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white px-3 py-2 text-sm transition-colors duration-200"
               >
                 Sign Out
               </button>
@@ -208,60 +222,60 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Simple Stats Overview */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <div className="text-2xl font-bold text-gray-900">{userStats.assigned}</div>
-            <div className="text-sm text-gray-600">My Cases</div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+            <div className="text-2xl font-bold text-gray-900 dark:text-white">{userStats.assigned}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">My Cases</div>
           </div>
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <div className="text-2xl font-bold text-red-600">{userStats.critical}</div>
-            <div className="text-sm text-gray-600">Critical Issues</div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">{userStats.critical}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Critical Issues</div>
           </div>
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <div className="text-2xl font-bold text-green-600">{userStats.resolved}</div>
-            <div className="text-sm text-gray-600">Resolved Today</div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{userStats.resolved}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Resolved Today</div>
           </div>
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <div className="text-2xl font-bold text-purple-600">{userStats.consulting}</div>
-            <div className="text-sm text-gray-600">Consulting</div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{userStats.consulting}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Consulting</div>
           </div>
         </div>
 
         {/* Critical Issues Alert */}
         {criticalTickets.filter(t => t.problemLevel === 'critical' && t.status !== 'resolved').length > 0 && (
-          <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 rounded-xl p-6 mb-8">
+          <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-2 border-red-200 dark:border-red-700 rounded-xl p-6 mb-8 transition-colors duration-200">
             <div className="flex items-center gap-3 mb-4">
-              <AlertTriangle className="h-6 w-6 text-red-600" />
-              <h2 className="text-lg font-bold text-red-900">Critical Issues Requiring Expert Attention</h2>
+              <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+              <h2 className="text-lg font-bold text-red-900 dark:text-red-100">Critical Issues Requiring Expert Attention</h2>
             </div>
             <div className="space-y-4">
               {tickets
                 .filter(t => t.problemLevel === 'critical' && t.status !== 'resolved')
                 .map(ticket => (
-                  <div key={ticket.id} className="bg-white border-2 border-red-200 rounded-lg p-4">
+                  <div key={ticket.id} className="bg-white dark:bg-gray-800 border-2 border-red-200 dark:border-red-700 rounded-lg p-4 transition-colors duration-200">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <span className="font-mono font-medium text-gray-900">{ticket.id}</span>
-                          <span className="px-2 py-1 text-xs font-bold rounded-full bg-red-100 text-red-800 border border-red-200">
+                          <span className="font-mono font-medium text-gray-900 dark:text-white">{ticket.id}</span>
+                          <span className="px-2 py-1 text-xs font-bold rounded-full bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700">
                             CRITICAL
                           </span>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
                             {ticket.submittedDate.toLocaleDateString()}
                           </span>
                         </div>
-                        <h3 className="font-medium text-gray-900 mb-1">{ticket.title}</h3>
-                        <p className="text-sm text-gray-600 mb-2">{ticket.clientName}</p>
-                        <p className="text-sm text-gray-500">{ticket.description}</p>
+                        <h3 className="font-medium text-gray-900 dark:text-white mb-1">{ticket.title}</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{ticket.clientName}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{ticket.description}</p>
                       </div>
                       <div className="ml-4">
                         {ticket.assignedTo === user.id ? (
-                          <span className="bg-red-100 text-red-800 px-3 py-2 rounded-lg text-sm font-medium border border-red-200">
+                          <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 px-3 py-2 rounded-lg text-sm font-medium border border-red-200 dark:border-red-700">
                             Assigned to You
                           </span>
                         ) : (
                           <button
                             onClick={() => handleTakeTicket(ticket.id)}
-                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
                           >
                             Take Ownership
                           </button>
@@ -276,12 +290,12 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Expert Cases - Left Column */}
-          <div className="bg-white rounded-xl shadow-sm">
-            <div className="p-6 border-b border-gray-200">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">My Expert Cases</h2>
-                  <p className="text-sm text-gray-600 mt-1">Critical and complex issues assigned to you</p>
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">My Expert Cases</h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Critical and complex issues assigned to you</p>
                 </div>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -290,7 +304,7 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                     placeholder="Search..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm w-48"
+                    className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors duration-200 w-48"
                   />
                 </div>
               </div>
@@ -299,11 +313,11 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
               {filteredMyTickets.length > 0 ? (
                 <div className="space-y-4">
                   {filteredMyTickets.map(ticket => (
-                    <div key={ticket.id} className="border border-gray-200 rounded-lg p-4">
+                    <div key={ticket.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 transition-colors duration-200">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="font-mono text-sm font-medium text-gray-600">{ticket.id}</span>
+                            <span className="font-mono text-sm font-medium text-gray-900 dark:text-white">{ticket.id}</span>
                             <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(ticket.status)}`}>
                               {ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1).replace('-', ' ')}
                             </span>
@@ -311,16 +325,16 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                               {ticket.problemLevel.charAt(0).toUpperCase() + ticket.problemLevel.slice(1)}
                             </span>
                           </div>
-                          <h3 className="font-medium text-gray-900 mb-1">{ticket.title}</h3>
-                          <p className="text-sm text-gray-600 mb-2">{ticket.clientName}</p>
-                          <div className="text-xs text-gray-400">
+                          <h3 className="font-medium text-gray-900 dark:text-white mb-1">{ticket.title}</h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{ticket.clientName}</p>
+                          <div className="text-xs text-gray-400 dark:text-gray-400">
                             Updated {ticket.lastUpdated.toLocaleDateString()}
                           </div>
                         </div>
                         <div className="ml-4 flex flex-col gap-2">
                           <button
                             onClick={() => setSelectedTicket(ticket)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors flex items-center gap-1"
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
                           >
                             <Eye className="h-3 w-3" />
                             View
@@ -328,7 +342,7 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                           {ticket.status === 'in-progress' && (
                             <button
                               onClick={() => handleTicketUpdate(ticket.id, { status: 'resolved', resolvedDate: new Date(), lastUpdated: new Date() })}
-                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors flex items-center gap-1"
+                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
                             >
                               <CheckSquare className="h-3 w-3" />
                               Resolve
@@ -344,14 +358,14 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                   {myTickets.length === 0 ? (
                     <>
                       <Ticket className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500">No expert cases assigned</p>
-                      <p className="text-sm text-gray-400 mt-1">Monitor critical issues above</p>
+                      <p className="text-gray-500 dark:text-gray-400">No expert cases assigned</p>
+                      <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">Monitor critical issues above</p>
                     </>
                   ) : (
                     <>
                       <Search className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500">No matching cases</p>
-                      <p className="text-sm text-gray-400 mt-1">Try a different search term</p>
+                      <p className="text-gray-500 dark:text-gray-400">No matching cases</p>
+                      <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">Try a different search term</p>
                     </>
                   )}
                 </div>
@@ -362,58 +376,70 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
           {/* System Status & Tools - Right Column */}
           <div className="space-y-6">
             {/* System Overview */}
-            <div className="bg-white rounded-xl shadow-sm">
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-lg font-bold text-gray-900">System Overview</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">System Overview</h3>
               </div>
               <div className="p-6">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-700">Database Status</span>
-                    <span className="text-green-600 font-medium">Healthy</span>
+                    <span className="text-gray-700 dark:text-gray-300">Database Status</span>
+                    <span className="text-green-600 dark:text-green-400 font-medium">Healthy</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-700">Active Sessions</span>
-                    <span className="text-gray-900 font-medium">143</span>
+                    <span className="text-gray-700 dark:text-gray-300">Active Sessions</span>
+                    <span className="text-gray-900 dark:text-white font-medium">143</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-700">Server Load</span>
-                    <span className="text-yellow-600 font-medium">Moderate</span>
+                    <span className="text-gray-700 dark:text-gray-300">Server Load</span>
+                    <span className="text-yellow-600 dark:text-yellow-400 font-medium">Moderate</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-700">Last Backup</span>
-                    <span className="text-gray-900 font-medium">2 hours ago</span>
+                    <span className="text-gray-700 dark:text-gray-300">Last Backup</span>
+                    <span className="text-gray-900 dark:text-white font-medium">2 hours ago</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-700">Uptime</span>
-                    <span className="text-green-600 font-medium">99.9%</span>
+                    <span className="text-gray-700 dark:text-gray-300">Uptime</span>
+                    <span className="text-green-600 dark:text-green-400 font-medium">99.9%</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Expert Tools */}
-            <div className="bg-white rounded-xl shadow-sm">
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-lg font-bold text-gray-900">Expert Tools</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Expert Tools</h3>
               </div>
               <div className="p-6">
-                <div className="grid grid-cols-2 gap-3">
-                  <button className="bg-red-50 hover:bg-red-100 text-red-700 p-3 rounded-lg flex flex-col items-center gap-2 transition-colors">
-                    <Server className="h-5 w-5" />
-                    <span className="text-xs font-medium">Infrastructure</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => handleQuickAction('database-diagnostic')}
+                    className="bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-lg text-sm font-medium transition-colors duration-200 flex flex-col items-center gap-2"
+                  >
+                    <Database className="h-6 w-6" />
+                    Database Diagnostic
                   </button>
-                  <button className="bg-blue-50 hover:bg-blue-100 text-blue-700 p-3 rounded-lg flex flex-col items-center gap-2 transition-colors">
-                    <Database className="h-5 w-5" />
-                    <span className="text-xs font-medium">Database</span>
+                  <button
+                    onClick={() => handleQuickAction('system-logs')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-lg text-sm font-medium transition-colors duration-200 flex flex-col items-center gap-2"
+                  >
+                    <FileText className="h-6 w-6" />
+                    System Logs
                   </button>
-                  <button className="bg-purple-50 hover:bg-purple-100 text-purple-700 p-3 rounded-lg flex flex-col items-center gap-2 transition-colors">
-                    <Code className="h-5 w-5" />
-                    <span className="text-xs font-medium">Code Review</span>
+                  <button
+                    onClick={() => handleQuickAction('performance-monitor')}
+                    className="bg-green-600 hover:bg-green-700 text-white p-4 rounded-lg text-sm font-medium transition-colors duration-200 flex flex-col items-center gap-2"
+                  >
+                    <Activity className="h-6 w-6" />
+                    Performance Monitor
                   </button>
-                  <button className="bg-orange-50 hover:bg-orange-100 text-orange-700 p-3 rounded-lg flex flex-col items-center gap-2 transition-colors">
-                    <Shield className="h-5 w-5" />
-                    <span className="text-xs font-medium">Security</span>
+                  <button
+                    onClick={() => handleQuickAction('security-audit')}
+                    className="bg-red-600 hover:bg-red-700 text-white p-4 rounded-lg text-sm font-medium transition-colors duration-200 flex flex-col items-center gap-2"
+                  >
+                    <Shield className="h-6 w-6" />
+                    Security Audit
                   </button>
                 </div>
               </div>

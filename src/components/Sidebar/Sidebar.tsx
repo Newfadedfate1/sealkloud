@@ -23,7 +23,12 @@ interface SidebarProps {
 const navItems = [
   // { id: 'dashboard', label: 'Dashboard', icon: <Home className="w-5 h-5" /> },
   // { id: 'tickets', label: 'Tickets', icon: <Ticket className="w-5 h-5" /> },
-  { id: 'knowledge', label: 'Knowledge', icon: <BookOpen className="w-5 h-5" /> },
+  { 
+    id: 'knowledge', 
+    label: 'Knowledge Base', 
+    icon: <BookOpen className="w-5 h-5" />,
+    description: 'Search solutions and best practices'
+  },
   { id: 'analytics', label: 'Analytics', icon: <BarChart3 className="w-5 h-5" /> },
   { id: 'team', label: 'Quick Actions', icon: <Command className="w-5 h-5" /> },
   { id: 'messages', label: 'Messages', icon: <MessageSquare className="w-5 h-5" /> },
@@ -75,11 +80,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ active, onNavigate, onLogout, 
           <button
             key={item.id}
             onClick={() => onNavigate(item.id)}
-            className={`flex items-center gap-3 px-4 py-2 rounded-lg mx-2 my-1 font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              active === item.id
-                ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-            } ${collapsed ? 'justify-center' : ''}`}
-            title={item.label}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg mx-2 my-1 font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500
+              ${active === item.id && item.id === 'knowledge'
+                ? 'bg-blue-600 text-white shadow-md'
+                : item.id === 'knowledge'
+                  ? 'text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-900 dark:hover:text-blue-100'
+                  : active === item.id
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 shadow-sm'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}
+              ${collapsed ? 'justify-center' : ''}`}
+            title={item.description || item.label}
+            style={item.id === 'knowledge' ? { fontWeight: 600, letterSpacing: '0.01em' } : {}}
           >
             {item.icon}
             {!collapsed && <span>{item.label}</span>}

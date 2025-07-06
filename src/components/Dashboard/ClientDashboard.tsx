@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Ticket, Plus, Search, Filter, Eye, Clock, AlertTriangle, CheckCircle, MessageSquare, FileText, User, Calendar, Phone, Mail, HelpCircle, Bell, BookOpen, Settings, Brain, BarChart3, Wrench, MessageCircle } from 'lucide-react';
 import { User as UserType } from '../../types/user';
 import { Ticket as TicketType, TicketStatus, ProblemLevel } from '../../types/ticket';
 import { CreateTicketModal } from '../Tickets/CreateTicketModal';
 import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
-import { useTickets } from '../../contexts/TicketContext';
+import { mockTickets } from '../../data/mockTickets';
 import { ThemeToggle } from '../ThemeToggle';
 import { NotificationCenter, Notification } from '../NotificationCenter';
 import { SearchBar, SearchFilter } from '../SearchBar';
@@ -14,7 +14,6 @@ import { SmartTicketAssistant } from '../AI/SmartTicketAssistant';
 import { SupportChatbot } from '../AI/SupportChatbot';
 import { ClientAnalytics } from '../AI/ClientAnalytics';
 import { SelfServiceTools } from '../AI/SelfServiceTools';
-import { TicketManagementService } from '../../services/ticketManagement';
 
 interface ClientDashboardProps {
   user: UserType;
@@ -22,37 +21,37 @@ interface ClientDashboardProps {
 }
 
 export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout }) => {
-  const { tickets, addTicket, updateTicket } = useTickets();
+  const [tickets, setTickets] = useState<TicketType[]>(
+    mockTickets.filter(ticket => ticket.clientId === user.id || ticket.clientName === `${user.firstName} ${user.lastName}`)
+  );
   const [showCreateTicket, setShowCreateTicket] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<TicketStatus | 'all'>('all');
   
-  // Initialize ticket management service for notifications
-  const ticketService = TicketManagementService.getInstance();
-  
-  // Filter tickets for this client using the context (not the service)
-  const clientTickets = tickets.filter(ticket => 
-    ticket.clientId === user.id || ticket.clientName === `${user.firstName} ${user.lastName}`
-  );
-  
-  // Debug logging for client tickets
-  console.log('🔍 Client Dashboard Debug:', {
-    totalTickets: tickets.length,
-    clientTickets: clientTickets.length,
-    clientId: user.id,
-    clientName: `${user.firstName} ${user.lastName}`,
-    clientTicketsDetails: clientTickets.map(t => ({ 
-      id: t.id, 
-      clientId: t.clientId, 
-      clientName: t.clientName, 
-      status: t.status,
-      assignedTo: t.assignedTo 
-    }))
-  });
-  
   // Phase 1 Enhancement States
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([
+    {
+      id: '1',
+      type: 'info',
+      title: 'Ticket Updated',
+      message: 'Your ticket TK-001 has been assigned to a specialist',
+      timestamp: new Date(Date.now() - 1000 * 60 * 30),
+      read: false,
+      action: {
+        label: 'View',
+        onClick: () => console.log('View ticket TK-001')
+      }
+    },
+    {
+      id: '2',
+      type: 'success',
+      title: 'Issue Resolved',
+      message: 'Your ticket TK-002 has been resolved successfully',
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
+      read: true
+    }
+  ]);
   const [showKnowledgeBase, setShowKnowledgeBase] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   
@@ -62,44 +61,6 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
   const [showSelfService, setShowSelfService] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
   const [ticketContent, setTicketContent] = useState('');
-
-  // Set up real-time notifications for this client
-  useEffect(() => {
-    const handleClientNotification = (notification: any) => {
-      const newNotification: Notification = {
-        id: notification.id,
-        type: notification.type === 'taken' ? 'success' : 
-              notification.type === 'escalation' ? 'warning' : 'info',
-        title: notification.title,
-        message: notification.message,
-        timestamp: notification.timestamp,
-        read: false,
-        action: {
-          label: 'View Ticket',
-          onClick: () => {
-            const ticket = tickets.find((t: TicketType) => t.id === notification.ticketId);
-            if (ticket) {
-              setSelectedTicket(ticket);
-            }
-          }
-        }
-      };
-      
-      setNotifications(prev => [newNotification, ...prev]);
-      
-      // Show toast notification
-      // You can add a toast system here if needed
-      console.log('🔔 Real-time notification received:', notification);
-    };
-
-    // Register for notifications specific to this client
-    ticketService.onClientNotificationForClient(user.id, handleClientNotification);
-
-    // Cleanup on unmount
-    return () => {
-      ticketService.offClientNotificationForClient(user.id, handleClientNotification);
-    };
-  }, [user.id, tickets]);
 
   const getStatusInfo = (status: TicketStatus) => {
     const statusMap = {
@@ -147,7 +108,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
     return urgencyMap[level] || urgencyMap['medium'];
   };
 
-  const filteredTickets = clientTickets.filter((ticket: TicketType) => {
+  const filteredTickets = tickets.filter(ticket => {
     const matchesSearch = ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          ticket.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter;
@@ -155,45 +116,28 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
   });
 
   const ticketStats = {
-    total: clientTickets.length,
-    active: clientTickets.filter((t: TicketType) => !['resolved', 'closed'].includes(t.status)).length,
-    resolved: clientTickets.filter((t: TicketType) => ['resolved', 'closed'].includes(t.status)).length,
-    urgent: clientTickets.filter((t: TicketType) => ['high', 'critical'].includes(t.problemLevel) && !['resolved', 'closed'].includes(t.status)).length
+    total: tickets.length,
+    active: tickets.filter(t => !['resolved', 'closed'].includes(t.status)).length,
+    resolved: tickets.filter(t => ['resolved', 'closed'].includes(t.status)).length,
+    urgent: tickets.filter(t => ['high', 'critical'].includes(t.problemLevel) && !['resolved', 'closed'].includes(t.status)).length
   };
 
   const handleCreateTicket = (ticketData: Partial<TicketType>) => {
-    const ticketId = `TK-${(tickets.length + 1).toString().padStart(3, '0')}`;
-    const problemLevel = ticketData.problemLevel || 'medium';
-    
-    // Determine available levels based on problem level
-    let availableToLevels: ('l1' | 'l2' | 'l3')[] = ['l1'];
-    if (problemLevel === 'high' || problemLevel === 'critical') {
-      availableToLevels.push('l2');
-    }
-    if (problemLevel === 'critical') {
-      availableToLevels.push('l3');
-    }
-
     const newTicket: TicketType = {
-      id: ticketId,
+      id: `TK-${(tickets.length + 1).toString().padStart(3, '0')}`,
       clientName: `${user.firstName} ${user.lastName}`,
       clientId: user.id,
       title: ticketData.title || '',
       description: ticketData.description || '',
-      problemLevel: problemLevel,
-      priority: problemLevel, // Set priority same as problem level
+      problemLevel: ticketData.problemLevel || 'medium',
+      priority: ticketData.problemLevel || 'medium',
       status: 'unassigned',
       submittedDate: new Date(),
       lastUpdated: new Date(),
-      // New escalation system fields
-      currentLevel: 'l1',
-      availableToLevels: availableToLevels,
-      escalationHistory: [],
-      isAvailableForAssignment: true,
       activityLog: [
         {
           id: `act-${Date.now()}`,
-          ticketId: ticketId,
+          ticketId: `TK-${(tickets.length + 1).toString().padStart(3, '0')}`,
           userId: user.id,
           userName: `${user.firstName} ${user.lastName}`,
           action: 'created',
@@ -201,15 +145,21 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
           timestamp: new Date()
         }
       ],
-      clientNotifications: []
+      clientNotifications: [],
+      currentLevel: 'l1',
+      availableToLevels: ['l1'],
+      escalationHistory: [],
+      isAvailableForAssignment: true
     };
 
-    addTicket(newTicket);
+    setTickets(prev => [newTicket, ...prev]);
     setShowCreateTicket(false);
   };
 
   const handleTicketUpdate = (ticketId: string, updates: Partial<TicketType>) => {
-    updateTicket(ticketId, updates);
+    setTickets(prev => prev.map(ticket => 
+      ticket.id === ticketId ? { ...ticket, ...updates } : ticket
+    ));
     setSelectedTicket(null);
   };
 

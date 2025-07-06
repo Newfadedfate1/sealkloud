@@ -180,8 +180,9 @@ export const EmployeeKnowledgeBase: React.FC<EmployeeKnowledgeBaseProps> = ({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-3">
           <div className="bg-blue-100 dark:bg-blue-900/20 p-2 rounded-lg">
             <BookOpen className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -193,11 +194,16 @@ export const EmployeeKnowledgeBase: React.FC<EmployeeKnowledgeBaseProps> = ({
         </div>
         <button
           onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
         >
-          ✕
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
+
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto p-6">
 
       {/* Search Bar */}
       <div className="mb-6">
@@ -207,16 +213,43 @@ export const EmployeeKnowledgeBase: React.FC<EmployeeKnowledgeBaseProps> = ({
             type="text"
             placeholder="Search knowledge base..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              // Auto-search with debounce
+              const timeoutId = setTimeout(() => {
+                if (e.target.value.trim()) {
+                  handleSearch(e.target.value);
+                }
+              }, 300);
+              return () => clearTimeout(timeoutId);
+            }}
             onKeyPress={(e) => e.key === 'Enter' && handleSearch(searchQuery)}
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="w-full pl-10 pr-20 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors"
           />
           <button
             onClick={() => handleSearch(searchQuery)}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+            disabled={isLoading}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
           >
-            Search
+            {isLoading ? 'Searching...' : 'Search'}
           </button>
+        </div>
+        
+        {/* Quick Search Suggestions */}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <span className="text-sm text-gray-600 dark:text-gray-400 mr-2">Quick search:</span>
+          {['password', 'login', 'billing', 'network', 'database'].map((term) => (
+            <button
+              key={term}
+              onClick={() => {
+                setSearchQuery(term);
+                handleSearch(term);
+              }}
+              className="text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full transition-colors"
+            >
+              {term}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -236,9 +269,40 @@ export const EmployeeKnowledgeBase: React.FC<EmployeeKnowledgeBaseProps> = ({
 
       {/* Loading State */}
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-3 text-gray-600 dark:text-gray-400">Searching knowledge base...</span>
+        <div className="flex flex-col items-center justify-center py-16">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <span className="text-gray-600 dark:text-gray-400 text-lg">Searching knowledge base...</span>
+          <span className="text-gray-500 dark:text-gray-500 text-sm mt-2">This may take a few seconds</span>
+        </div>
+      )}
+
+      {/* Welcome State */}
+      {!isLoading && !searchQuery && articles.length === 0 && (
+        <div className="text-center py-16">
+          <div className="bg-blue-100 dark:bg-blue-900/20 rounded-full p-6 w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+            <BookOpen className="h-12 w-12 text-blue-600 dark:text-blue-400" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">Welcome to Knowledge Base</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+            Search for solutions, troubleshooting guides, and best practices to help resolve tickets efficiently.
+          </p>
+          <div className="flex flex-col items-center gap-4">
+            <span className="text-sm text-gray-500 dark:text-gray-500">Popular categories:</span>
+            <div className="flex flex-wrap justify-center gap-2">
+              {['Authentication', 'Billing', 'Technical', 'Network', 'Database'].map((category) => (
+                <button
+                  key={category}
+                  onClick={() => {
+                    setSearchQuery(category);
+                    handleSearch(category);
+                  }}
+                  className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -254,99 +318,104 @@ export const EmployeeKnowledgeBase: React.FC<EmployeeKnowledgeBaseProps> = ({
             </div>
           </div>
 
-          {articles.map((article) => {
-            const CategoryIcon = getCategoryIcon(article.category);
-            return (
-              <div
-                key={article.id}
-                className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
-                onClick={() => setSelectedArticle(article)}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <CategoryIcon className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm text-gray-600 dark:text-gray-400">{article.category}</span>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getDifficultyColor(article.difficulty)}`}>
-                        {article.difficulty}
-                      </span>
+          <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-1">
+            {articles.map((article) => {
+              const CategoryIcon = getCategoryIcon(article.category);
+              return (
+                <div
+                  key={article.id}
+                  className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 cursor-pointer hover:shadow-md"
+                  onClick={() => setSelectedArticle(article)}
+                >
+                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-3 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <CategoryIcon className="h-4 w-4 text-gray-500" />
+                          <span className="text-sm text-gray-600 dark:text-gray-400">{article.category}</span>
+                        </div>
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getDifficultyColor(article.difficulty)}`}>
+                          {article.difficulty}
+                        </span>
+                      </div>
+                      <h4 className="font-semibold text-gray-900 dark:text-white mb-2 text-lg">{article.title}</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 leading-relaxed">{article.content}</p>
+                      
+                      <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
+                        <span className="flex items-center gap-1">
+                          <Eye className="h-3 w-3" />
+                          {article.views.toLocaleString()}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <ThumbsUp className="h-3 w-3" />
+                          {article.helpful.toLocaleString()}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {article.lastUpdated.toLocaleDateString()}
+                        </span>
+                      </div>
                     </div>
-                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">{article.title}</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">{article.content}</p>
                     
-                    <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <Eye className="h-3 w-3" />
-                        {article.views}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <ThumbsUp className="h-3 w-3" />
-                        {article.helpful}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {article.lastUpdated.toLocaleDateString()}
-                      </span>
+                    <div className="flex items-center gap-2 lg:flex-col lg:items-end">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBookmark(article.id);
+                        }}
+                        className={`p-2 rounded-lg transition-colors ${
+                          bookmarkedArticles.has(article.id)
+                            ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400'
+                            : 'bg-gray-100 dark:bg-gray-600 text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-400'
+                        }`}
+                        title={bookmarkedArticles.has(article.id) ? 'Remove bookmark' : 'Bookmark article'}
+                      >
+                        <Bookmark className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onApplySolution(article.content);
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+                      >
+                        Apply Solution
+                      </button>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2 ml-4">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleBookmark(article.id);
-                      }}
-                      className={`p-2 rounded-lg transition-colors ${
-                        bookmarkedArticles.has(article.id)
-                          ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400'
-                          : 'bg-gray-100 dark:bg-gray-600 text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-400'
-                      }`}
-                    >
-                      <Bookmark className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onApplySolution(article.content);
-                      }}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      Apply
-                    </button>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 
       {/* No Results */}
       {!isLoading && searchQuery && articles.length === 0 && (
-        <div className="text-center py-12">
-          <BookOpen className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No articles found</h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">Try different keywords or check spelling</p>
-          <div className="flex items-center justify-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-            <span>Suggestions:</span>
-            <button
-              onClick={() => setSearchQuery('password')}
-              className="text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              password
-            </button>
-            <button
-              onClick={() => setSearchQuery('login')}
-              className="text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              login
-            </button>
-            <button
-              onClick={() => setSearchQuery('billing')}
-              className="text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              billing
-            </button>
+        <div className="text-center py-16">
+          <div className="bg-gray-100 dark:bg-gray-700 rounded-full p-6 w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+            <BookOpen className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">No articles found</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+            We couldn't find any articles matching "{searchQuery}". Try different keywords or check your spelling.
+          </p>
+          <div className="flex flex-col items-center gap-4">
+            <span className="text-sm text-gray-500 dark:text-gray-500">Try these popular searches:</span>
+            <div className="flex flex-wrap justify-center gap-2">
+              {['password reset', 'login issues', 'billing problems', 'network connectivity', 'database errors'].map((term) => (
+                <button
+                  key={term}
+                  onClick={() => {
+                    setSearchQuery(term);
+                    handleSearch(term);
+                  }}
+                  className="bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  {term}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -359,9 +428,11 @@ export const EmployeeKnowledgeBase: React.FC<EmployeeKnowledgeBaseProps> = ({
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{selectedArticle.title}</h3>
               <button
                 onClick={() => setSelectedArticle(null)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
-                ✕
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
             
@@ -414,6 +485,7 @@ export const EmployeeKnowledgeBase: React.FC<EmployeeKnowledgeBaseProps> = ({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }; 

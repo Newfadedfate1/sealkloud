@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { Shield, Users, Ticket, BarChart3, Settings, TrendingUp, Clock, AlertTriangle, Activity, Database, Server, Eye, Filter, Key, Webhook, Zap, FileText, ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Shield, Users, Ticket, BarChart3, Settings, TrendingUp, Clock, AlertTriangle, Activity, Database, Server, Eye, Filter, Key, Webhook, Zap, FileText, ShieldCheck, RefreshCw, Download, Calendar, TrendingDown, Target, CheckCircle, XCircle, X } from 'lucide-react';
 import { User } from '../../types/user';
 import { TicketStatsCard } from './TicketStatsCard';
-import { ClientTicketChart } from './ClientTicketChart';
+import { DailyTicketTrends } from './DailyTicketTrends';
 import { TicketTable } from './TicketTable';
 import { UserManagementModal } from '../UserManagement/UserManagementModal';
 import { mockTickets, getTicketStats, getClientTicketData } from '../../data/mockTickets';
@@ -18,10 +18,47 @@ import { CustomDashboard } from './CustomDashboard';
 import { WorkflowAutomation } from '../Admin/WorkflowAutomation';
 import { ApiWebhookSupport } from '../Admin/ApiWebhookSupport';
 import { AdvancedAnalyticsDashboard } from './AdvancedAnalyticsDashboard';
+import { ErrorBoundary } from '../ErrorBoundary/ErrorBoundary';
 
 interface AdminDashboardProps {
   user: User;
   onLogout: () => void;
+}
+
+// Enhanced metrics interface
+interface EnhancedMetrics {
+  tickets: {
+    total: number;
+    open: number;
+    unassigned: number;
+    resolved: number;
+    trend: string;
+    avgResolutionTime: number;
+    highPriority: number;
+    overdue: number;
+  };
+  performance: {
+    resolutionRate: number;
+    avgResponseTime: number;
+    slaCompliance: number;
+    customerSatisfaction: number;
+    firstResponseTime: number;
+    escalationRate: number;
+  };
+  system: {
+    activeUsers: number;
+    uptime: number;
+    serverLoad: number;
+    activeSessions: number;
+    databaseConnections: number;
+    apiResponseTime: number;
+  };
+  security: {
+    failedLogins: number;
+    suspiciousActivities: number;
+    lastSecurityScan: Date;
+    vulnerabilities: number;
+  };
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
@@ -29,6 +66,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [tickets, setTickets] = useState(mockTickets);
   const [selectedTimeframe, setSelectedTimeframe] = useState('7d');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(30); // seconds
+  
   const [notifications, setNotifications] = useState<Notification[]>([
     {
       id: '1',
@@ -63,30 +105,127 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
   const [showApiWebhookSupport, setShowApiWebhookSupport] = useState(false);
   
   const ticketStats = getTicketStats();
-  const clientData = getClientTicketData();
   
-  // Enhanced admin metrics with trends
-  const metrics = {
+  // Mock daily ticket trends data
+  const dailyTicketData = [
+    { date: 'Mon', created: 12, resolved: 10 },
+    { date: 'Tue', created: 15, resolved: 14 },
+    { date: 'Wed', created: 8, resolved: 12 },
+    { date: 'Thu', created: 20, resolved: 18 },
+    { date: 'Fri', created: 14, resolved: 16 },
+    { date: 'Sat', created: 6, resolved: 8 },
+    { date: 'Sun', created: 4, resolved: 6 }
+  ];
+  
+  // Enhanced admin metrics with real-time simulation
+  const [metrics, setMetrics] = useState<EnhancedMetrics>({
     tickets: {
       total: ticketStats.total,
       open: ticketStats.open,
       unassigned: ticketStats.unassigned,
       resolved: ticketStats.resolved,
       trend: '+12%',
-      avgResolutionTime: 4.2
+      avgResolutionTime: 4.2,
+      highPriority: 8,
+      overdue: 3
     },
     performance: {
       resolutionRate: 92,
       avgResponseTime: 2.4,
       slaCompliance: 98.5,
-      customerSatisfaction: 4.6
+      customerSatisfaction: 4.6,
+      firstResponseTime: 1.8,
+      escalationRate: 15
     },
     system: {
       activeUsers: 156,
       uptime: 99.9,
       serverLoad: 65,
-      activeSessions: 143
+      activeSessions: 143,
+      databaseConnections: 24,
+      apiResponseTime: 120
+    },
+    security: {
+      failedLogins: 3,
+      suspiciousActivities: 1,
+      lastSecurityScan: new Date(Date.now() - 3600000 * 6), // 6 hours ago
+      vulnerabilities: 0
     }
+  });
+
+  // Real-time data simulation
+  const simulateRealTimeUpdates = useCallback(() => {
+    setMetrics(prev => ({
+      ...prev,
+      tickets: {
+        ...prev.tickets,
+        total: prev.tickets.total + Math.floor(Math.random() * 3) - 1,
+        open: Math.max(0, prev.tickets.open + Math.floor(Math.random() * 2) - 1),
+        unassigned: Math.max(0, prev.tickets.unassigned + Math.floor(Math.random() * 2) - 1),
+        resolved: prev.tickets.resolved + Math.floor(Math.random() * 2),
+        highPriority: Math.max(0, prev.tickets.highPriority + Math.floor(Math.random() * 2) - 1),
+        overdue: Math.max(0, prev.tickets.overdue + Math.floor(Math.random() * 2) - 1)
+      },
+      performance: {
+        ...prev.performance,
+        resolutionRate: Math.min(100, Math.max(80, prev.performance.resolutionRate + (Math.random() - 0.5) * 2)),
+        avgResponseTime: Math.max(0.5, prev.performance.avgResponseTime + (Math.random() - 0.5) * 0.5),
+        slaCompliance: Math.min(100, Math.max(95, prev.performance.slaCompliance + (Math.random() - 0.5) * 1)),
+        customerSatisfaction: Math.min(5, Math.max(4, prev.performance.customerSatisfaction + (Math.random() - 0.5) * 0.2))
+      },
+      system: {
+        ...prev.system,
+        activeUsers: Math.max(100, prev.system.activeUsers + Math.floor(Math.random() * 10) - 5),
+        serverLoad: Math.min(100, Math.max(20, prev.system.serverLoad + (Math.random() - 0.5) * 10)),
+        activeSessions: Math.max(100, prev.system.activeSessions + Math.floor(Math.random() * 20) - 10),
+        databaseConnections: Math.max(10, prev.system.databaseConnections + Math.floor(Math.random() * 4) - 2),
+        apiResponseTime: Math.max(50, prev.system.apiResponseTime + (Math.random() - 0.5) * 20)
+      },
+      security: {
+        ...prev.security,
+        failedLogins: Math.max(0, prev.security.failedLogins + Math.floor(Math.random() * 3) - 1),
+        suspiciousActivities: Math.max(0, prev.security.suspiciousActivities + Math.floor(Math.random() * 2) - 1)
+      }
+    }));
+    setLastUpdate(new Date());
+  }, []);
+
+  // Auto-refresh functionality
+  useEffect(() => {
+    if (!autoRefresh) return;
+    
+    const interval = setInterval(() => {
+      simulateRealTimeUpdates();
+    }, refreshInterval * 1000);
+    
+    return () => clearInterval(interval);
+  }, [autoRefresh, refreshInterval, simulateRealTimeUpdates]);
+
+  // Manual refresh
+  const handleManualRefresh = () => {
+    setIsRefreshing(true);
+    simulateRealTimeUpdates();
+    setTimeout(() => setIsRefreshing(false), 1000);
+  };
+
+  // Export functionality
+  const handleExportData = (type: 'metrics' | 'tickets' | 'users') => {
+    const data = {
+      metrics,
+      tickets,
+      timestamp: new Date().toISOString(),
+      timeframe: selectedTimeframe
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `admin-dashboard-${type}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // Mock available users for ticket assignment
@@ -137,6 +276,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
     }
   };
 
+  const getStatusColor = (value: number, threshold: number, type: 'good' | 'warning' | 'danger') => {
+    if (type === 'good') return value >= threshold ? 'text-green-600' : 'text-red-600';
+    if (type === 'warning') return value <= threshold ? 'text-green-600' : value <= threshold * 1.2 ? 'text-yellow-600' : 'text-red-600';
+    if (type === 'danger') return value <= threshold ? 'text-green-600' : 'text-red-600';
+    return 'text-gray-600';
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -151,19 +297,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
               </div>
             </div>
             <div className="flex items-center gap-4">
+              {/* Simplified Real-time Controls */}
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Timeframe:</span>
-                <select 
-                  value={selectedTimeframe}
-                  onChange={(e) => setSelectedTimeframe(e.target.value)}
-                  className="text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                <button
+                  onClick={handleManualRefresh}
+                  disabled={isRefreshing}
+                  className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                 >
-                  <option value="24h">Last 24h</option>
-                  <option value="7d">Last 7 days</option>
-                  <option value="30d">Last 30 days</option>
-                  <option value="90d">Last 90 days</option>
-                </select>
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                </button>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={autoRefresh}
+                    onChange={(e) => setAutoRefresh(e.target.checked)}
+                    className="w-3 h-3"
+                  />
+                  <span className="text-xs text-gray-600 dark:text-gray-400">Auto</span>
+                </div>
               </div>
+              
               <ThemeToggle />
               <NotificationCenter
                 notifications={notifications}
@@ -197,7 +351,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
           />
         </div>
 
-        {/* Key Performance Indicators */}
+        {/* Enhanced Key Performance Indicators */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <TicketStatsCard
             title="Total Tickets"
@@ -206,246 +360,216 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
             color="text-blue-600"
             bgColor="bg-blue-100"
             change={metrics.tickets.trend}
+            trend={metrics.tickets.trend.startsWith('+') ? 'up' : 'down'}
           />
           <TicketStatsCard
             title="Resolution Rate"
-            count={metrics.performance.resolutionRate}
+            count={Math.round(metrics.performance.resolutionRate)}
             icon={TrendingUp}
-            color="text-green-600"
+            color={getStatusColor(metrics.performance.resolutionRate, 90, 'good')}
             bgColor="bg-green-100"
             change="% This month"
+            trend="up"
           />
           <TicketStatsCard
             title="Avg Response Time"
-            count={metrics.performance.avgResponseTime}
+            count={Number(metrics.performance.avgResponseTime.toFixed(1))}
             icon={Clock}
-            color="text-orange-600"
+            color={getStatusColor(metrics.performance.avgResponseTime, 4, 'warning')}
             bgColor="bg-orange-100"
             change="hours (Target: 4h)"
+            trend={metrics.performance.avgResponseTime <= 4 ? 'up' : 'down'}
           />
           <TicketStatsCard
             title="System Uptime"
-            count={metrics.system.uptime}
+            count={Number(metrics.system.uptime.toFixed(1))}
             icon={Activity}
-            color="text-purple-600"
+            color={getStatusColor(metrics.system.uptime, 99.5, 'good')}
             bgColor="bg-purple-100"
             change="% Availability"
+            trend="up"
           />
         </div>
 
-        {/* Critical Alerts & Insights */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Critical Issues */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Critical Issues</h2>
-                <AlertTriangle className="h-5 w-5 text-red-500" />
-              </div>
-              <div className="space-y-3">
-                {metrics.tickets.unassigned > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                    <div>
-                      <p className="font-medium text-red-900 dark:text-red-200">{metrics.tickets.unassigned} Unassigned Tickets</p>
-                      <p className="text-sm text-red-600 dark:text-red-400">Requires immediate attention</p>
-                    </div>
-                    <button className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm font-medium">
-                      View →
-                    </button>
-                  </div>
-                )}
-                <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+        {/* Streamlined Alerts & System Health */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Critical Issues - Simplified */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">System Alerts</h2>
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+            </div>
+            <div className="space-y-3">
+              {metrics.tickets.unassigned > 0 && (
+                <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
                   <div>
-                    <p className="font-medium text-yellow-900 dark:text-yellow-200">Server Load: {metrics.system.serverLoad}%</p>
-                    <p className="text-sm text-yellow-600 dark:text-yellow-400">Moderate - Monitor closely</p>
+                    <p className="font-medium text-red-900 dark:text-red-200">{metrics.tickets.unassigned} Unassigned Tickets</p>
+                    <p className="text-sm text-red-600 dark:text-red-400">Requires attention</p>
                   </div>
-                  <button className="text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-300 text-sm font-medium">
-                    Details →
+                  <button className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm font-medium">
+                    View →
                   </button>
                 </div>
-                <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              )}
+              {metrics.tickets.overdue > 0 && (
+                <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                   <div>
-                    <p className="font-medium text-blue-900 dark:text-blue-200">SLA Compliance: {metrics.performance.slaCompliance}%</p>
-                    <p className="text-sm text-blue-600 dark:text-blue-400">Above target threshold</p>
+                    <p className="font-medium text-orange-900 dark:text-orange-200">{metrics.tickets.overdue} Overdue Tickets</p>
+                    <p className="text-sm text-orange-600 dark:text-orange-400">SLA violations</p>
+                  </div>
+                  <button className="text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 text-sm font-medium">
+                    Review →
+                  </button>
+                </div>
+              )}
+                              <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <div>
+                    <p className="font-medium text-blue-900 dark:text-blue-200">SLA Compliance: {metrics.performance.slaCompliance.toFixed(1)}%</p>
+                    <p className="text-sm text-blue-600 dark:text-blue-400">Above target</p>
                   </div>
                   <button className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium">
                     Report →
                   </button>
                 </div>
-              </div>
             </div>
           </div>
 
-          {/* System Health */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">System Health</h2>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Database className="h-4 w-4 text-green-500" />
-                    <span className="text-gray-600 dark:text-gray-400">Database</span>
-                  </div>
-                  <span className="text-green-600 dark:text-green-400 font-medium">Healthy</span>
+          {/* System Health - Simplified */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">System Health</h2>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Database className="h-4 w-4 text-green-500" />
+                  <span className="text-gray-600 dark:text-gray-400">Database</span>
                 </div>
-                <div className="flex items-center justify-between">
+                <span className="text-green-600 dark:text-green-400 font-medium">Healthy</span>
+              </div>
+                              <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Server className="h-4 w-4 text-yellow-500" />
                     <span className="text-gray-600 dark:text-gray-400">Server Load</span>
                   </div>
-                  <span className="text-yellow-600 dark:text-yellow-400 font-medium">{metrics.system.serverLoad}%</span>
+                  <span className={`font-medium ${getStatusColor(metrics.system.serverLoad, 80, 'warning')}`}>
+                    {Math.round(metrics.system.serverLoad)}%
+                  </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-blue-500" />
-                    <span className="text-gray-600 dark:text-gray-400">Active Sessions</span>
-                  </div>
-                  <span className="text-gray-900 dark:text-white font-medium">{metrics.system.activeSessions}</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-blue-500" />
+                  <span className="text-gray-600 dark:text-gray-400">Active Users</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-purple-500" />
-                    <span className="text-gray-600 dark:text-gray-400">Active Users</span>
-                  </div>
-                  <span className="text-gray-900 dark:text-white font-medium">{metrics.system.activeUsers}</span>
-                </div>
+                <span className="text-gray-900 dark:text-white font-medium">{metrics.system.activeUsers}</span>
               </div>
-            </div>
-          </div>
-
-          {/* Performance Insights */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Performance Insights</h2>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600 dark:text-gray-400">Customer Satisfaction</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{metrics.performance.customerSatisfaction}/5.0</span>
+                              <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-indigo-500" />
+                    <span className="text-gray-600 dark:text-gray-400">API Response</span>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div className="bg-green-500 h-2 rounded-full" style={{ width: `${(metrics.performance.customerSatisfaction / 5) * 100}%` }}></div>
-                  </div>
+                  <span className={`font-medium ${getStatusColor(metrics.system.apiResponseTime, 200, 'warning')}`}>
+                    {Math.round(metrics.system.apiResponseTime)}ms
+                  </span>
                 </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600 dark:text-gray-400">Avg Resolution Time</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{metrics.tickets.avgResolutionTime}h</span>
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${Math.min((metrics.tickets.avgResolutionTime / 8) * 100, 100)}%` }}></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600 dark:text-gray-400">Ticket Volume Trend</span>
-                    <span className="font-medium text-green-600 dark:text-green-400">{metrics.tickets.trend}</span>
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div className="bg-green-500 h-2 rounded-full" style={{ width: '60%' }}></div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Client Distribution Chart */}
+        {/* Security Overview - Compact */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Security Status</h2>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-green-500" />
+              <span className="text-sm text-green-600 dark:text-green-400">Secure</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Failed Logins</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">{metrics.security.failedLogins}</p>
+            </div>
+            <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Suspicious Activities</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">{metrics.security.suspiciousActivities}</p>
+            </div>
+            <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Vulnerabilities</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">{metrics.security.vulnerabilities}</p>
+            </div>
+            <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Last Scan</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                {metrics.security.lastSecurityScan.toLocaleTimeString()}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Daily Ticket Trends */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 mb-8">
+          <DailyTicketTrends data={dailyTicketData} />
+        </div>
+
+        {/* Streamlined Quick Actions */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 mb-8">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Client Ticket Distribution</h2>
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-400" />
-              <select className="text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                <option>All Clients</option>
-                <option>Top 5</option>
-                <option>Active Only</option>
-              </select>
-            </div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Quick Actions</h2>
+            <button
+              onClick={() => handleExportData('metrics')}
+              className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+            >
+              <Download className="h-4 w-4" />
+              Export Data
+            </button>
           </div>
-          <ClientTicketChart data={clientData} />
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Quick Actions</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            
             <button 
               onClick={() => setShowUserManagement(true)}
-              className="bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
+              className="bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors cursor-pointer"
             >
               <Users className="h-6 w-6" />
-              <span className="text-sm font-medium">Manage Users</span>
+              <span className="text-sm font-medium">Users</span>
             </button>
             <button 
               onClick={() => setShowAnalytics(true)}
-              className="bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 text-green-700 dark:text-green-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
+              className="bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 text-green-700 dark:text-green-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors cursor-pointer"
             >
               <BarChart3 className="h-6 w-6" />
               <span className="text-sm font-medium">Analytics</span>
             </button>
-            <button className="bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 text-purple-700 dark:text-purple-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors">
-              <Settings className="h-6 w-6" />
-              <span className="text-sm font-medium">Settings</span>
-            </button>
             <button 
               onClick={() => setShowAuditLog(true)}
-              className="bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-700 dark:text-orange-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
+              className="bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-700 dark:text-orange-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors cursor-pointer"
             >
               <Eye className="h-6 w-6" />
               <span className="text-sm font-medium">Audit Log</span>
             </button>
             <button 
               onClick={() => setShowRoleManagement(true)}
-              className="bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
+              className="bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors cursor-pointer"
             >
               <ShieldCheck className="h-6 w-6" />
               <span className="text-sm font-medium">Roles</span>
             </button>
             <button 
-              onClick={() => setShowCustomDashboard(true)}
-              className="bg-teal-50 dark:bg-teal-900/20 hover:bg-teal-100 dark:hover:bg-teal-900/30 text-teal-700 dark:text-teal-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
+              onClick={() => setShowWorkflowAutomation(true)}
+              className="bg-pink-50 dark:bg-pink-900/20 hover:bg-pink-100 dark:hover:bg-pink-900/30 text-pink-700 dark:text-pink-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors cursor-pointer"
             >
-              <BarChart3 className="h-6 w-6" />
-              <span className="text-sm font-medium">Custom Dashboard</span>
+              <Zap className="h-6 w-6" />
+              <span className="text-sm font-medium">Automation</span>
+            </button>
+            <button 
+              onClick={() => setShowApiWebhookSupport(true)}
+              className="bg-cyan-50 dark:bg-cyan-900/20 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors cursor-pointer"
+            >
+              <Webhook className="h-6 w-6" />
+              <span className="text-sm font-medium">API</span>
             </button>
           </div>
         </div>
 
-        {/* Phase 2 Advanced Features */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Advanced Features</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <button 
-              onClick={() => setShowTwoFactorAuth(true)}
-              className="bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-700 dark:text-red-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
-            >
-              <ShieldCheck className="h-6 w-6" />
-              <span className="text-sm font-medium">2FA Setup</span>
-            </button>
-            <button 
-              onClick={() => setShowReportScheduler(true)}
-              className="bg-yellow-50 dark:bg-yellow-900/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
-            >
-              <FileText className="h-6 w-6" />
-              <span className="text-sm font-medium">Report Scheduler</span>
-            </button>
-            <button 
-              onClick={() => setShowWorkflowAutomation(true)}
-              className="bg-pink-50 dark:bg-pink-900/20 hover:bg-pink-100 dark:hover:bg-pink-900/30 text-pink-700 dark:text-pink-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
-            >
-              <Zap className="h-6 w-6" />
-              <span className="text-sm font-medium">Workflow Automation</span>
-            </button>
-            <button 
-              onClick={() => setShowApiWebhookSupport(true)}
-              className="bg-cyan-50 dark:bg-cyan-900/20 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 p-4 rounded-lg flex flex-col items-center gap-2 transition-colors"
-            >
-              <Webhook className="h-6 w-6" />
-              <span className="text-sm font-medium">API & Webhooks</span>
-            </button>
-          </div>
-        </div>
+
 
         {/* Enhanced Ticket Management Table */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
@@ -508,18 +632,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
       )}
 
       {showAuditLog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <div className="flex justify-between items-center mb-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-7xl w-full max-h-[95vh] overflow-hidden">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Audit Log</h2>
               <button
                 onClick={() => setShowAuditLog(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
-            <AuditLogViewer />
+            <div className="p-6 overflow-y-auto max-h-[calc(95vh-80px)]">
+              <ErrorBoundary fallback={<div className="text-center p-8 text-red-600">Error loading audit log. Please try again.</div>}>
+                <AuditLogViewer />
+              </ErrorBoundary>
+            </div>
           </div>
         </div>
       )}

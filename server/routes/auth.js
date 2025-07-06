@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import { getDatabase } from '../config/database.js';
+import { createAuditLog } from './audit.js';
 
 const router = express.Router();
 
@@ -47,6 +48,20 @@ router.post('/login', [
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '24h' }
     );
+
+    // Create audit log entry for successful login
+    await createAuditLog({
+      userId: user.id,
+      userEmail: user.email,
+      action: 'LOGIN_SUCCESS',
+      resourceType: 'Auth',
+      resourceId: user.id.toString(),
+      resourceName: `${user.first_name} ${user.last_name}`,
+      details: 'User logged in successfully',
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+      severity: 'info'
+    });
 
     // Return user data (excluding password)
     const { password_hash, ...userData } = user;

@@ -353,20 +353,153 @@ export const ticketsAPI = {
 };
 
 export const usersAPI = {
-  getAll: async () => {
-    return api.get<any[]>('/users');
+  getAll: async (params?: { page?: number; limit?: number; role?: string; search?: string }) => {
+    const queryString = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return api.get<any>(`/users${queryString}`);
   },
 
   getById: async (id: string) => {
     return api.get<any>(`/users/${id}`);
   },
 
+  create: async (userData: { email: string; password: string; firstName: string; lastName: string; role: string }) => {
+    return api.post<any>('/users', userData);
+  },
+
   update: async (id: string, updates: any) => {
-    return api.put<any>(`/users/${id}`, updates);
+    return api.patch<any>(`/users/${id}`, updates);
   },
 
   delete: async (id: string) => {
     return api.delete(`/users/${id}`);
+  },
+
+  toggleStatus: async (id: string, isActive: boolean) => {
+    return api.patch<any>(`/users/${id}`, { isActive });
+  },
+
+  updateRole: async (id: string, role: string) => {
+    return api.patch<any>(`/users/${id}`, { role });
+  },
+};
+
+export const auditAPI = {
+  getAll: async (params?: { 
+    page?: number; 
+    limit?: number; 
+    action?: string; 
+    resourceType?: string; 
+    severity?: string; 
+    userEmail?: string; 
+    startDate?: string; 
+    endDate?: string; 
+    search?: string 
+  }) => {
+    const queryString = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return api.get<any>(`/audit${queryString}`);
+  },
+
+  getStats: async () => {
+    return api.get<any>('/audit/stats');
+  },
+
+  export: async (format: 'csv' | 'json', startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams({ format });
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    return api.get<any>(`/audit/export?${params.toString()}`);
+  },
+};
+
+export const rolesAPI = {
+  getAll: async (params?: { 
+    page?: number; 
+    limit?: number; 
+    search?: string; 
+    include_permissions?: boolean; 
+    include_users?: boolean 
+  }) => {
+    const queryString = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return api.get<any>(`/roles${queryString}`);
+  },
+
+  getById: async (id: string, params?: { include_permissions?: boolean; include_users?: boolean }) => {
+    const queryString = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return api.get<any>(`/roles/${id}${queryString}`);
+  },
+
+  create: async (roleData: { name: string; description?: string; permissions: string[] }) => {
+    return api.post<any>('/roles', roleData);
+  },
+
+  update: async (id: string, updates: { name?: string; description?: string; permissions?: string[] }) => {
+    return api.put<any>(`/roles/${id}`, updates);
+  },
+
+  delete: async (id: string) => {
+    return api.delete(`/roles/${id}`);
+  },
+
+  getPermissions: async () => {
+    return api.get<any>('/roles/permissions/list');
+  },
+
+  assignToUser: async (roleId: string, userId: string) => {
+    return api.post<any>(`/roles/${roleId}/assign`, { user_id: userId });
+  },
+
+  removeFromUser: async (roleId: string, userId: string) => {
+    return api.delete<any>(`/roles/${roleId}/assign/${userId}`);
+  },
+};
+
+export const workflowsAPI = {
+  getAll: async (params?: { 
+    page?: number; 
+    limit?: number; 
+    search?: string; 
+    active_only?: boolean 
+  }) => {
+    const queryString = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return api.get<any>(`/workflows${queryString}`);
+  },
+
+  getById: async (id: string) => {
+    return api.get<any>(`/workflows/${id}`);
+  },
+
+  create: async (workflowData: { 
+    name: string; 
+    description?: string; 
+    is_active?: boolean; 
+    priority?: number; 
+    conditions: Array<{ field: string; operator: string; value: string }>; 
+    actions: Array<{ type: string; value: string }> 
+  }) => {
+    return api.post<any>('/workflows', workflowData);
+  },
+
+  update: async (id: string, updates: { 
+    name?: string; 
+    description?: string; 
+    is_active?: boolean; 
+    priority?: number; 
+    conditions?: Array<{ field: string; operator: string; value: string }>; 
+    actions?: Array<{ type: string; value: string }> 
+  }) => {
+    return api.put<any>(`/workflows/${id}`, updates);
+  },
+
+  delete: async (id: string) => {
+    return api.delete(`/workflows/${id}`);
+  },
+
+  toggle: async (id: string) => {
+    return api.patch<any>(`/workflows/${id}/toggle`);
+  },
+
+  getMetadata: async () => {
+    return api.get<any>('/workflows/metadata/available');
   },
 };
 

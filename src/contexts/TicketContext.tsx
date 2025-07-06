@@ -21,13 +21,15 @@ interface TicketContextType {
 
 const TicketContext = createContext<TicketContextType | undefined>(undefined);
 
-export const useTickets = () => {
+const useTickets = () => {
   const context = useContext(TicketContext);
   if (context === undefined) {
     throw new Error('useTickets must be used within a TicketProvider');
   }
   return context;
 };
+
+export { useTickets };
 
 interface TicketProviderProps {
   children: ReactNode;

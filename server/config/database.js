@@ -78,6 +78,100 @@ export const initializeDatabase = async () => {
       )
     `);
 
+    // Create audit_logs table
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        user_email TEXT NOT NULL,
+        action TEXT NOT NULL,
+        resource_type TEXT NOT NULL,
+        resource_id TEXT,
+        resource_name TEXT,
+        details TEXT,
+        ip_address TEXT,
+        user_agent TEXT,
+        severity TEXT DEFAULT 'info' CHECK (severity IN ('info', 'warning', 'error', 'critical')),
+        timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
+      )
+    `);
+
+    // Create roles table
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS roles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE NOT NULL,
+        description TEXT,
+        is_system_role INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create role_permissions table
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS role_permissions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        role_id INTEGER NOT NULL,
+        permission TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE CASCADE,
+        UNIQUE(role_id, permission)
+      )
+    `);
+
+    // Create user_roles table for role assignments
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS user_roles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        role_id INTEGER NOT NULL,
+        assigned_by INTEGER,
+        assigned_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+        FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE CASCADE,
+        FOREIGN KEY (assigned_by) REFERENCES users (id) ON DELETE SET NULL,
+        UNIQUE(user_id, role_id)
+      )
+    `);
+
+    // Create workflow_rules table
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        is_active INTEGER DEFAULT 1,
+        priority INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create workflow_conditions table
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_conditions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rule_id INTEGER NOT NULL,
+        field TEXT NOT NULL,
+        operator TEXT NOT NULL,
+        value TEXT NOT NULL,
+        FOREIGN KEY (rule_id) REFERENCES workflow_rules (id) ON DELETE CASCADE
+      )
+    `);
+
+    // Create workflow_actions table
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_actions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rule_id INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        value TEXT NOT NULL,
+        FOREIGN KEY (rule_id) REFERENCES workflow_rules (id) ON DELETE CASCADE
+      )
+    `);
+
     console.log('✅ Database tables initialized successfully');
     return db;
   } catch (error) {

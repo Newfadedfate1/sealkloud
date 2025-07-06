@@ -40,3 +40,26 @@ export const requireRole = (roles) => {
 
 export const requireAdmin = requireRole(['admin']);
 export const requireEmployee = requireRole(['employee_l1', 'employee_l2', 'employee_l3', 'admin']);
+
+// Audit logging function
+export const logAuditEvent = async (req, action, resourceType, resourceId, resourceName, details) => {
+  try {
+    const db = getDatabase();
+    await db.run(`
+      INSERT INTO audit_logs (user_id, user_email, action, resource_type, resource_id, resource_name, details, ip_address, user_agent, timestamp)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `, [
+      req.user?.id || null,
+      req.user?.email || 'system',
+      action,
+      resourceType,
+      resourceId,
+      resourceName,
+      details,
+      req.ip || req.connection?.remoteAddress || 'unknown',
+      req.get('User-Agent') || 'unknown'
+    ]);
+  } catch (error) {
+    console.error('Error logging audit event:', error);
+  }
+};

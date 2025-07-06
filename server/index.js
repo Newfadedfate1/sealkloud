@@ -6,6 +6,9 @@ import { authRoutes } from './routes/auth.js';
 import { ticketRoutes } from './routes/tickets.js';
 import { userRoutes } from './routes/users.js';
 import { dashboardRoutes } from './routes/dashboard.js';
+import { auditRoutes } from './routes/audit.js';
+import roleRoutes from './routes/roles.js';
+import workflowRoutes from './routes/workflows.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { authenticateToken } from './middleware/auth.js';
 import { 
@@ -63,6 +66,9 @@ app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/tickets', authenticateToken, ticketRoutes);
 app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
+app.use('/api/audit', authenticateToken, auditRoutes);
+app.use('/api/roles', authenticateToken, roleRoutes);
+app.use('/api/workflows', authenticateToken, workflowRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

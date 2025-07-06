@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { body, query, validationResult } from 'express-validator';
 import { getDatabase } from '../config/database.js';
 import { requireAdmin, requireEmployee } from '../middleware/auth.js';
+import { createAuditLog } from './audit.js';
 
 const router = express.Router();
 
@@ -278,6 +279,20 @@ router.post('/', requireAdmin, [
       [result.lastID]
     );
 
+    // Create audit log entry
+    await createAuditLog({
+      userId: req.user.id,
+      userEmail: req.user.email,
+      action: 'USER_CREATED',
+      resourceType: 'User',
+      resourceId: user.id.toString(),
+      resourceName: `${user.first_name} ${user.last_name} (${user.email})`,
+      details: `Created new user with role: ${user.role}`,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+      severity: 'info'
+    });
+
     res.status(201).json({
       user: {
         id: user.id,
@@ -371,6 +386,27 @@ router.patch('/:userId', requireAdmin, [
       [userId]
     );
 
+    // Create audit log entry
+    const changes = [];
+    if (firstName !== undefined) changes.push(`First name: ${firstName}`);
+    if (lastName !== undefined) changes.push(`Last name: ${lastName}`);
+    if (email !== undefined) changes.push(`Email: ${email}`);
+    if (role !== undefined) changes.push(`Role: ${role}`);
+    if (isActive !== undefined) changes.push(`Status: ${isActive ? 'Active' : 'Inactive'}`);
+
+    await createAuditLog({
+      userId: req.user.id,
+      userEmail: req.user.email,
+      action: 'USER_UPDATED',
+      resourceType: 'User',
+      resourceId: userId,
+      resourceName: `${updatedUser.first_name} ${updatedUser.last_name} (${updatedUser.email})`,
+      details: `Updated user: ${changes.join(', ')}`,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+      severity: 'info'
+    });
+
     res.json({
       user: {
         id: updatedUser.id,
@@ -404,11 +440,31 @@ router.delete('/:userId', requireAdmin, async (req, res, next) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Get user info before deletion for audit log
+    const userToDelete = await getDatabase().get(
+      'SELECT first_name, last_name, email FROM users WHERE id = ?',
+      [userId]
+    );
+
     // Soft delete by setting is_active to false
     await getDatabase().run(
       'UPDATE users SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
       [userId]
     );
+
+    // Create audit log entry
+    await createAuditLog({
+      userId: req.user.id,
+      userEmail: req.user.email,
+      action: 'USER_DELETED',
+      resourceType: 'User',
+      resourceId: userId,
+      resourceName: `${userToDelete.first_name} ${userToDelete.last_name} (${userToDelete.email})`,
+      details: 'User account deactivated',
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+      severity: 'warning'
+    });
 
     res.json({ message: 'User deleted successfully' });
   } catch (error) {

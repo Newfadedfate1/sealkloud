@@ -3,55 +3,6 @@ import { User, LoginCredentials, AuthState } from '../types/user';
 import { authAPI } from '../services/api';
 import { useToastHelpers } from '../components/Toast/ToastContainer';
 
-// Mock user data for demonstration - matches backend seed data
-const mockUsers: User[] = [
-  {
-    id: '1',
-    email: 'client@sealkloud.com',
-    firstName: 'John',
-    lastName: 'Client',
-    role: 'client',
-    companyId: 'sealkloud',
-    isActive: true,
-  },
-  {
-    id: '2',
-    email: 'employee@sealkloud.com',
-    firstName: 'Jane',
-    lastName: 'Employee',
-    role: 'employee_l1',
-    companyId: 'sealkloud',
-    isActive: true,
-  },
-  {
-    id: '3',
-    email: 'admin@sealkloud.com',
-    firstName: 'Admin',
-    lastName: 'User',
-    role: 'admin',
-    companyId: 'sealkloud',
-    isActive: true,
-  },
-  {
-    id: '4',
-    email: 'l2tech@sealkloud.com',
-    firstName: 'Level 2',
-    lastName: 'Tech',
-    role: 'employee_l2',
-    companyId: 'sealkloud',
-    isActive: true,
-  },
-  {
-    id: '5',
-    email: 'l3expert@sealkloud.com',
-    firstName: 'Level 3',
-    lastName: 'Expert',
-    role: 'employee_l3',
-    companyId: 'sealkloud',
-    isActive: true,
-  },
-];
-
 const STORAGE_KEY = 'sealkloud_auth';
 
 const AuthContext = createContext<
@@ -110,84 +61,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      // Try real API first, fallback to mock
-      try {
-        const response = await authAPI.login(credentials);
-        if (response.success && response.data?.user) {
-          const authenticatedUser = { 
-            ...response.data.user, 
-            lastLogin: new Date() 
-          };
-          
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(authenticatedUser));
-          setAuthState({
-            user: authenticatedUser,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
-          });
-          return;
-        }
-      } catch (apiError) {
-        console.log('API login failed, falling back to mock:', apiError);
-      }
-
-      // Fallback to mock authentication
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Validate input
-      if (!credentials.email || !credentials.password) {
-        throw new Error('Email and password are required');
-      }
-
-      // Normalize email for comparison
-      const normalizedEmail = credentials.email.toLowerCase().trim();
-      const normalizedPassword = credentials.password.trim();
+      // Use real API for authentication
+      const response = await authAPI.login(credentials);
       
-      console.log('Looking for user with email:', normalizedEmail);
-      console.log('Available users:', mockUsers.map(u => u.email));
-      
-      // Mock authentication - find user by email
-      const user = mockUsers.find(u => u.email.toLowerCase() === normalizedEmail);
-      
-      if (!user) {
-        console.log('User not found for email:', normalizedEmail);
-        console.log('Available emails:', mockUsers.map(u => u.email));
-        throw new Error('Invalid email or password. Please use one of the demo accounts: admin@sealkloud.com, employee@sealkloud.com, client@sealkloud.com, l2tech@sealkloud.com, or l3expert@sealkloud.com');
+      if (response.success && response.data?.user) {
+        const authenticatedUser = { 
+          ...response.data.user, 
+          lastLogin: new Date() 
+        };
+        
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(authenticatedUser));
+        setAuthState({
+          user: authenticatedUser,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        });
+        return;
+      } else {
+        throw new Error('Login failed. Please check your credentials.');
       }
-
-      console.log('Found user:', user);
-
-      if (!user.isActive) {
-        console.log('User account is deactivated');
-        throw new Error('Account is deactivated. Please contact support.');
-      }
-
-      // In real implementation, verify password hash
-      // For demo purposes, accept 'password123' for all accounts
-      if (normalizedPassword !== 'password123') {
-        console.log('Invalid password. Expected: password123, Got:', normalizedPassword);
-        throw new Error('Invalid email or password. For demo accounts, use password: password123');
-      }
-
-      const authenticatedUser = { 
-        ...user, 
-        lastLogin: new Date() 
-      };
-
-      console.log('Authentication successful, storing user:', authenticatedUser);
-
-      // Store in localStorage for persistence
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(authenticatedUser));
-
-      setAuthState({
-        user: authenticatedUser,
-        isAuthenticated: true,
-        isLoading: false,
-        error: null,
-      });
-
-      console.log('Login successful, state updated');
     } catch (error) {
       console.error('Login error:', error);
       setAuthState(prev => ({
@@ -200,7 +93,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const logout = useCallback(() => {
-    console.log('Logging out...');
+    console.log('Logging out user');
     localStorage.removeItem(STORAGE_KEY);
     setAuthState({
       user: null,
@@ -208,26 +101,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isLoading: false,
       error: null,
     });
-    console.log('Logout successful');
   }, []);
 
   const clearError = useCallback(() => {
-    setAuthState((prev: AuthState) => ({ ...prev, error: null }));
+    setAuthState(prev => ({ ...prev, error: null }));
   }, []);
 
+  const value = {
+    ...authState,
+    login,
+    logout,
+    clearError,
+  };
+
   return (
-    <AuthContext.Provider value={{ ...authState, login, logout, clearError }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-const useAuth = () => {
+export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
-
-export { useAuth };

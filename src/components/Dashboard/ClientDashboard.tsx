@@ -1,19 +1,24 @@
-import React, { useState } from 'react';
-import { Ticket, Plus, Search, Filter, Eye, Clock, AlertTriangle, CheckCircle, MessageSquare, FileText, User, Calendar, Phone, Mail, HelpCircle, Bell, BookOpen, Settings, Brain, BarChart3, Wrench, MessageCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, Clock, CheckCircle, AlertTriangle, Search, MessageSquare, User, ArrowRight, BarChart3, BookOpen, Brain, History, Ticket, X, Plus, Filter, Download } from 'lucide-react';
 import { User as UserType } from '../../types/user';
 import { Ticket as TicketType, TicketStatus, ProblemLevel } from '../../types/ticket';
-import { CreateTicketModal } from '../Tickets/CreateTicketModal';
-import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
-import { mockTickets } from '../../data/mockTickets';
-import { ThemeToggle } from '../ThemeToggle';
-import { NotificationCenter, Notification } from '../NotificationCenter';
-import { SearchBar, SearchFilter } from '../SearchBar';
-import { KnowledgeBase } from '../KnowledgeBase';
-import { ClientSettings } from '../Client/ClientSettings';
-import { SmartTicketAssistant } from '../AI/SmartTicketAssistant';
-import { SupportChatbot } from '../AI/SupportChatbot';
-import { ClientAnalytics } from '../AI/ClientAnalytics';
-import { SelfServiceTools } from '../AI/SelfServiceTools';
+import { EnhancedTicketDetailModal } from '../TicketDetail/EnhancedTicketDetailModal';
+import { TicketHistoryModal } from '../TicketHistory/TicketHistoryModal';
+import { useTickets } from '../../contexts/TicketContext';
+import { TicketManagementService } from '../../services/ticketManagement';
+import { ThemeToggle } from './ThemeToggle';
+import { DataSourceIndicator } from '../DataSourceIndicator';
+import { TestStatusIndicator } from './TestStatusIndicator';
+import { TestRunner } from '../Testing/TestRunner';
+import { ExportModal } from '../ExportModal';
+import { Phase2Demo } from '../Phase2Demo/Phase2Demo';
+import { Phase4Demo } from '../Phase4Demo/Phase4Demo';
+import { Sidebar } from '../Sidebar/Sidebar';
+import { useToast } from '../Toast/ToastContainer';
+import { ChatInterface } from '../Chat/ChatInterface';
+import { NotificationManager } from '../Chat/ChatNotification';
+import { RealTimeStatusTracker } from './RealTimeStatusTracker';
+import { ticketsAPI } from '../../services/api';
 
 interface ClientDashboardProps {
   user: UserType;
@@ -21,609 +26,429 @@ interface ClientDashboardProps {
 }
 
 export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout }) => {
-  const [tickets, setTickets] = useState<TicketType[]>(
-    mockTickets.filter(ticket => ticket.clientId === user.id || ticket.clientName === `${user.firstName} ${user.lastName}`)
-  );
-  const [showCreateTicket, setShowCreateTicket] = useState(false);
-  const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
+  const { tickets, addTicket, updateTicket, refreshTickets, ticketService, isLoading, isUsingMockData } = useTickets();
+  const { addToast } = useToast();
+  
+  // State management
+  const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<TicketStatus | 'all'>('all');
+  const [activeSection, setActiveSection] = useState('dashboard');
+  const [highlightedTicketId, setHighlightedTicketId] = useState<string | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showTestRunner, setShowTestRunner] = useState(false);
+  const [showPhase2Demo, setShowPhase2Demo] = useState(false);
+  const [showPhase4Demo, setShowPhase4Demo] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
+  const [showChat, setShowChat] = useState(false);
+  const [chatNotifications, setChatNotifications] = useState<Array<{
+    id: string;
+    senderName: string;
+    content: string;
+    timestamp: Date;
+  }>>([]);
   
-  // Phase 1 Enhancement States
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: '1',
-      type: 'info',
-      title: 'Ticket Updated',
-      message: 'Your ticket TK-001 has been assigned to a specialist',
-      timestamp: new Date(Date.now() - 1000 * 60 * 30),
-      read: false,
-      action: {
-        label: 'View',
-        onClick: () => console.log('View ticket TK-001')
-      }
-    },
-    {
-      id: '2',
-      type: 'success',
-      title: 'Issue Resolved',
-      message: 'Your ticket TK-002 has been resolved successfully',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-      read: true
-    }
-  ]);
-  const [showKnowledgeBase, setShowKnowledgeBase] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  
-  // Phase 2 AI Enhancement States
-  const [showSmartAssistant, setShowSmartAssistant] = useState(false);
-  const [showAnalytics, setShowAnalytics] = useState(false);
-  const [showSelfService, setShowSelfService] = useState(false);
-  const [showChatbot, setShowChatbot] = useState(false);
-  const [ticketContent, setTicketContent] = useState('');
-
-  const getStatusInfo = (status: TicketStatus) => {
-    const statusMap = {
-      'open': { 
-        color: 'bg-blue-50 text-blue-700 border-blue-200', 
-        icon: Clock, 
-        label: 'Open',
-        description: 'Your ticket has been received and is awaiting assignment'
-      },
-      'unassigned': { 
-        color: 'bg-orange-50 text-orange-700 border-orange-200', 
-        icon: AlertTriangle, 
-        label: 'Pending Assignment',
-        description: 'We\'re finding the right specialist for your issue'
-      },
-      'in-progress': { 
-        color: 'bg-yellow-50 text-yellow-700 border-yellow-200', 
-        icon: MessageSquare, 
-        label: 'In Progress',
-        description: 'Our team is actively working on your issue'
-      },
-      'resolved': { 
-        color: 'bg-green-50 text-green-700 border-green-200', 
-        icon: CheckCircle, 
-        label: 'Resolved',
-        description: 'Your issue has been resolved'
-      },
-      'closed': { 
-        color: 'bg-gray-50 text-gray-700 border-gray-200', 
-        icon: CheckCircle, 
-        label: 'Closed',
-        description: 'Ticket has been completed and closed'
-      }
-    };
-    return statusMap[status] || statusMap['open'];
-  };
-
-  const getUrgencyInfo = (level: ProblemLevel) => {
-    const urgencyMap = {
-      'low': { color: 'bg-green-50 text-green-700 border-green-200', label: 'Low Priority' },
-      'medium': { color: 'bg-yellow-50 text-yellow-700 border-yellow-200', label: 'Medium Priority' },
-      'high': { color: 'bg-orange-50 text-orange-700 border-orange-200', label: 'High Priority' },
-      'critical': { color: 'bg-red-50 text-red-700 border-red-200', label: 'Critical' }
-    };
-    return urgencyMap[level] || urgencyMap['medium'];
-  };
-
-  const filteredTickets = tickets.filter(ticket => {
-    const matchesSearch = ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ticket.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  // Real-time data states
+  const [clientTickets, setClientTickets] = useState<TicketType[]>([]);
+  const [clientStats, setClientStats] = useState({
+    totalTickets: 0,
+    openTickets: 0,
+    resolvedTickets: 0,
+    avgResolutionTime: 0
   });
 
-  const ticketStats = {
-    total: tickets.length,
-    active: tickets.filter(t => !['resolved', 'closed'].includes(t.status)).length,
-    resolved: tickets.filter(t => ['resolved', 'closed'].includes(t.status)).length,
-    urgent: tickets.filter(t => ['high', 'critical'].includes(t.problemLevel) && !['resolved', 'closed'].includes(t.status)).length
+  // Load client-specific data
+  const loadClientData = async () => {
+    try {
+      // Load tickets for this client
+      const response = await ticketsAPI.getAll({ clientId: user.id });
+      if (response.success && response.data) {
+        const clientTicketsData = response.data.filter((ticket: any) => 
+          ticket.clientId === user.id || 
+          ticket.clientName === `${user.firstName} ${user.lastName}`
+        );
+        
+        setClientTickets(clientTicketsData);
+        
+        // Calculate stats
+        const stats = clientTicketsData.reduce((acc: any, ticket: any) => {
+          acc.total++;
+          if (ticket.status === 'open' || ticket.status === 'in-progress') acc.open++;
+          if (ticket.status === 'resolved') acc.resolved++;
+          return acc;
+        }, { total: 0, open: 0, resolved: 0, avgResolutionTime: 0 });
+        
+        setClientStats(stats);
+      }
+    } catch (error) {
+      console.error('Error loading client data:', error);
+    }
   };
 
-  const handleCreateTicket = (ticketData: Partial<TicketType>) => {
-    const newTicket: TicketType = {
-      id: `TK-${(tickets.length + 1).toString().padStart(3, '0')}`,
-      clientName: `${user.firstName} ${user.lastName}`,
-      clientId: user.id,
-      title: ticketData.title || '',
-      description: ticketData.description || '',
-      problemLevel: ticketData.problemLevel || 'medium',
-      priority: ticketData.problemLevel || 'medium',
-      status: 'unassigned',
-      submittedDate: new Date(),
-      lastUpdated: new Date(),
-      activityLog: [
-        {
-          id: `act-${Date.now()}`,
-          ticketId: `TK-${(tickets.length + 1).toString().padStart(3, '0')}`,
-          userId: user.id,
-          userName: `${user.firstName} ${user.lastName}`,
-          action: 'created',
-          description: 'Ticket submitted by client',
-          timestamp: new Date()
-        }
-      ],
-      clientNotifications: [],
-      currentLevel: 'l1',
-      availableToLevels: ['l1'],
-      escalationHistory: [],
-      isAvailableForAssignment: true
-    };
+  // Load data on mount and refresh periodically
+  useEffect(() => {
+    loadClientData();
+    const interval = setInterval(loadClientData, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, [user.id]);
 
-    setTickets(prev => [newTicket, ...prev]);
-    setShowCreateTicket(false);
-  };
-
-  const handleTicketUpdate = (ticketId: string, updates: Partial<TicketType>) => {
-    setTickets(prev => prev.map(ticket => 
+  const handleTicketUpdate = (ticketId: string, updates: any) => {
+    setClientTickets(prev => prev.map(ticket => 
       ticket.id === ticketId ? { ...ticket, ...updates } : ticket
     ));
-    setSelectedTicket(null);
   };
 
-  // Phase 1 Enhancement Handlers
-  const handleNotificationMarkAsRead = (id: string) => {
-    setNotifications(prev => prev.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    ));
+  const handleCreateTicket = async (ticketData: any) => {
+    try {
+      const response = await ticketsAPI.create({
+        ...ticketData,
+        clientName: `${user.firstName} ${user.lastName}`,
+        clientId: user.id
+      });
+      
+      if (response.success) {
+        showToast('Ticket created successfully!', 'success');
+        await loadClientData(); // Refresh the data
+      } else {
+        showToast('Failed to create ticket', 'error');
+      }
+    } catch (error) {
+      console.error('Error creating ticket:', error);
+      showToast('Failed to create ticket', 'error');
+    }
   };
 
-  const handleNotificationMarkAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
-
-  const handleNotificationDelete = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  };
-
-  const handleSearch = (query: string, filters: SearchFilter[]) => {
-    setSearchTerm(query);
-    // Apply additional filters if needed
-    console.log('Advanced search:', query, filters);
+  const handleSearch = (query: string, filters: any[]) => {
+    console.log('Search:', query, filters);
+    // Implement search logic here
   };
 
   const handleSearchClear = () => {
-    setSearchTerm('');
-    // Reset other filters
+    console.log('Search cleared');
+    // Reset search results
   };
 
-  // Phase 2 AI Enhancement Handlers
-  const handleSmartAssistantSuggestion = (suggestion: any) => {
-    // Apply AI suggestions to ticket creation
-    const ticketData = {
-      title: suggestion.category,
-      description: ticketContent,
-      problemLevel: suggestion.priority,
-      category: suggestion.category
-    };
-    handleCreateTicket(ticketData);
+  const handleQuickAction = (action: string, data?: any) => {
+    console.log('Quick action:', action, data);
+    const ticketId = data?.ticketId || highlightedTicketId;
+    
+    if (!ticketId) {
+      console.log('No ticket selected for action:', action);
+      return;
+    }
+
+    const ticket = clientTickets.find(t => t.id === ticketId);
+    if (!ticket) {
+      console.log('Ticket not found:', ticketId);
+      return;
+    }
+
+    switch (action) {
+      case 'update':
+        handleTicketUpdate(ticketId, {
+          ...data,
+          lastUpdated: new Date()
+        });
+        break;
+      case 'export':
+        setShowExportModal(true);
+        break;
+      default:
+        console.log('Unknown action:', action);
+    }
   };
 
-  const handleChatbotTicketCreation = (ticketData: any) => {
-    handleCreateTicket(ticketData);
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToastMessage(message);
+    setToastType(type);
+    setTimeout(() => setToastMessage(null), 5000);
   };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'open': return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'in-progress': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+      case 'resolved': return 'bg-green-50 text-green-700 border-green-200';
+      case 'closed': return 'bg-gray-50 text-gray-700 border-gray-200';
+      case 'unassigned': return 'bg-orange-50 text-orange-700 border-orange-200';
+      default: return 'bg-gray-50 text-gray-700 border-gray-200';
+    }
+  };
+
+  const getPriorityColor = (level: string) => {
+    switch (level) {
+      case 'critical': return 'bg-red-50 text-red-700 border-red-200';
+      case 'high': return 'bg-orange-50 text-orange-700 border-orange-200';
+      case 'medium': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+      case 'low': return 'bg-green-50 text-green-700 border-green-200';
+      default: return 'bg-gray-50 text-gray-700 border-gray-200';
+    }
+  };
+
+  const handleSidebarNavigate = (section: string) => {
+    setActiveSection(section);
+    switch (section) {
+      case 'dashboard':
+        break;
+      case 'tickets':
+        break;
+      case 'history':
+        break;
+      case 'support':
+        setShowChat(true);
+        break;
+      case 'settings':
+        break;
+      default:
+        break;
+    }
+  };
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Enhanced Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 flex">
+      <Sidebar
+        active={activeSection}
+        onNavigate={handleSidebarNavigate}
+        onLogout={onLogout}
+        collapsed={sidebarCollapsed}
+        onCollapse={setSidebarCollapsed}
+      />
+      <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-56'}`}>
+        <DataSourceIndicator 
+          isUsingMockData={isUsingMockData}
+          isLoading={isLoading}
+          onRefresh={loadClientData}
+        />
+        
+        {/* Clean Header */}
+        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors duration-200">
+          <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="bg-blue-100 dark:bg-blue-900/20 p-2 rounded-lg">
-                <Ticket className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg transition-colors duration-200">
+                <User className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">Support Portal</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Welcome back, {user.firstName}</p>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white transition-colors duration-200">Client Dashboard</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400 transition-colors duration-200">Welcome back, {user.firstName}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowAnalytics(true)}
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                title="Analytics"
-              >
-                <BarChart3 className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setShowKnowledgeBase(true)}
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                title="Knowledge Base"
-              >
-                <BookOpen className="h-5 w-5" />
-              </button>
-              <NotificationCenter
-                notifications={notifications}
-                onMarkAsRead={handleNotificationMarkAsRead}
-                onMarkAllAsRead={handleNotificationMarkAllAsRead}
-                onDelete={handleNotificationDelete}
-              />
+            <div className="flex items-center gap-4">
               <ThemeToggle />
               <button
-                onClick={() => setShowSettings(true)}
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                title="Settings"
+                onClick={() => handleCreateTicket({
+                  title: 'New Support Request',
+                  description: 'Please describe your issue here...',
+                  problemLevel: 'medium'
+                })}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
               >
-                <Settings className="h-5 w-5" />
+                <Plus className="h-4 w-4" />
+                New Ticket
               </button>
               <button
                 onClick={onLogout}
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white px-3 py-2 text-sm font-medium transition-colors"
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
               >
-                Sign Out
+                Logout
               </button>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        {/* Enhanced Search Bar */}
-        <div className="mb-8">
-          <SearchBar
-            onSearch={handleSearch}
-            onClear={handleSearchClear}
-            placeholder="Search tickets, knowledge base, or get help..."
-            className="max-w-2xl"
-          />
-        </div>
+        <main className="max-w-7xl mx-auto px-4 py-8">
+          {/* Client Stats Overview */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">{clientStats.totalTickets}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Total Tickets</div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{clientStats.openTickets}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Open Tickets</div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{clientStats.resolvedTickets}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Resolved</div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{clientStats.avgResolutionTime.toFixed(1)}h</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Avg Resolution</div>
+            </div>
+          </div>
 
-        {/* Quick Overview Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">{ticketStats.total}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Total Tickets</div>
+          {/* Test Status Indicator */}
+          <div className="mb-8">
+            <TestStatusIndicator />
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{ticketStats.active}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Active</div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{ticketStats.resolved}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Resolved</div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{ticketStats.urgent}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Urgent</div>
-          </div>
-        </div>
 
-        {/* Enhanced Main Action */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl p-6 mb-8 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold mb-2">Need Help?</h2>
-              <p className="text-blue-100 dark:text-blue-200">Create a support ticket and our team will assist you</p>
-              <div className="flex items-center gap-4 mt-3 text-sm">
-                <span className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
-                  Avg Response: 2.4h
-                </span>
-                <span className="flex items-center gap-1">
-                  <CheckCircle className="h-4 w-4" />
-                  98% Resolution Rate
-                </span>
+          {/* Highlighted Ticket Indicator */}
+          {highlightedTicketId && (
+            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Ticket {highlightedTicketId} selected
+                  </span>
+                </div>
+                <button
+                  onClick={() => setHighlightedTicketId(null)}
+                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 text-sm"
+                >
+                  Clear
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowSelfService(true)}
-                className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-              >
-                <Wrench className="h-4 w-4" />
-                Self-Service
-              </button>
-              <button
-                onClick={() => setShowKnowledgeBase(true)}
-                className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-              >
-                <BookOpen className="h-4 w-4" />
-                Help Center
-              </button>
-              <button
-                onClick={() => setShowCreateTicket(true)}
-                className="bg-white text-blue-600 dark:text-blue-700 px-6 py-3 rounded-lg font-medium hover:bg-blue-50 dark:hover:bg-blue-100 transition-colors flex items-center gap-2"
-              >
-                <Plus className="h-5 w-5" />
-                New Ticket
-              </button>
-            </div>
-          </div>
-        </div>
+          )}
 
-        {/* Enhanced Tickets Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Your Support Tickets</h2>
-              
-              {/* Enhanced Filters */}
-              <div className="flex gap-3">
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as TicketStatus | 'all')}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="all">All Tickets</option>
-                  <option value="open">Open</option>
-                  <option value="unassigned">Pending</option>
-                  <option value="in-progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
-                </select>
-                
-                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                  <span>Showing {filteredTickets.length} of {tickets.length}</span>
+          {/* Main Content Area */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">My Tickets</h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Your support tickets and requests</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search tickets..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
+                    />
+                  </div>
+                  <button
+                    onClick={() => setShowExportModal(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export
+                  </button>
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Enhanced Tickets List */}
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredTickets.length > 0 ? (
-              filteredTickets.map((ticket) => {
-                const statusInfo = getStatusInfo(ticket.status);
-                const urgencyInfo = getUrgencyInfo(ticket.problemLevel);
-                const StatusIcon = statusInfo.icon;
-                
-                return (
-                  <div key={ticket.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        {/* Ticket Header */}
-                        <div className="flex items-center gap-3 mb-3">
-                          <span className="font-mono text-sm font-medium text-gray-600 dark:text-gray-400">{ticket.id}</span>
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${statusInfo.color} dark:bg-opacity-20`}>
-                            <StatusIcon className="h-3 w-3" />
-                            {statusInfo.label}
-                          </span>
-                          <span className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full border ${urgencyInfo.color} dark:bg-opacity-20`}>
-                            {urgencyInfo.label}
-                          </span>
+            <div className="p-6">
+              {isLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-500 dark:text-gray-400">Loading tickets...</p>
+                </div>
+              ) : clientTickets.length > 0 ? (
+                <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                  {clientTickets
+                    .filter(ticket => 
+                      ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      ticket.id.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map(ticket => (
+                    <div 
+                      key={ticket.id} 
+                      className={`border rounded-lg p-4 transition-all duration-200 cursor-pointer ${
+                        highlightedTicketId === ticket.id 
+                          ? 'border-blue-300 bg-blue-50 dark:bg-blue-900/20 shadow-md' 
+                          : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                      onClick={() => setHighlightedTicketId(highlightedTicketId === ticket.id ? null : ticket.id)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-mono text-sm font-medium text-gray-900 dark:text-white">{ticket.id}</span>
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(ticket.status)}`}>
+                              {ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1).replace('-', ' ')}
+                            </span>
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(ticket.priority || ticket.problemLevel)}`}>
+                              {(ticket.priority || ticket.problemLevel).charAt(0).toUpperCase() + (ticket.priority || ticket.problemLevel).slice(1)}
+                            </span>
+                          </div>
+                          <h3 className="font-medium text-gray-900 dark:text-white mb-1">{ticket.title}</h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{ticket.description}</p>
+                          <div className="text-xs text-gray-400 dark:text-gray-400">
+                            Updated {new Date(ticket.lastUpdated).toLocaleDateString()}
+                          </div>
                         </div>
-                        
-                        {/* Ticket Content */}
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">{ticket.title}</h3>
-                        <p className="text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">{ticket.description}</p>
-                        
-                        {/* Status Description */}
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{statusInfo.description}</p>
-                        
-                        {/* Ticket Meta */}
-                        <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                          <span>Created {ticket.submittedDate.toLocaleDateString()}</span>
-                          <span>•</span>
-                          <span>Updated {ticket.lastUpdated.toLocaleDateString()}</span>
-                          {ticket.assignedToName && (
-                            <>
-                              <span>•</span>
-                              <span>Assigned to {ticket.assignedToName}</span>
-                            </>
-                          )}
+                        <div className="ml-4 flex flex-col gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTicket(ticket);
+                            }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
+                          >
+                            View
+                          </button>
                         </div>
                       </div>
-                      
-                      {/* Action Button */}
-                      <button
-                        onClick={() => setSelectedTicket(ticket)}
-                        className="ml-4 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-                      >
-                        <Eye className="h-4 w-4" />
-                        View
-                      </button>
                     </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center py-12">
-                {tickets.length === 0 ? (
-                  <div>
-                    <Ticket className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No tickets yet</h3>
-                    <p className="text-gray-500 dark:text-gray-400 mb-6">Create your first support ticket to get help from our team</p>
-                    <button
-                      onClick={() => setShowCreateTicket(true)}
-                      className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors inline-flex items-center gap-2"
-                    >
-                      <Plus className="h-5 w-5" />
-                      Create First Ticket
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <Filter className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No matching tickets</h3>
-                    <p className="text-gray-500 dark:text-gray-400">Try adjusting your search or filter</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Enhanced Help Section */}
-        <div className="mt-8 bg-gray-100 dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-start gap-4">
-            <div className="bg-blue-100 dark:bg-blue-900/20 p-2 rounded-lg">
-              <HelpCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-medium text-gray-900 dark:text-white mb-2">Need immediate assistance?</h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">For urgent issues, you can contact our support team directly</p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={() => setShowChatbot(true)}
-                  className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  AI Chat Support
-                </button>
-                <a
-                  href="mailto:support@sealkloud.com"
-                  className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
-                >
-                  <Mail className="h-4 w-4" />
-                  support@sealkloud.com
-                </a>
-                <a
-                  href="tel:+1-555-123-4567"
-                  className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
-                >
-                  <Phone className="h-4 w-4" />
-                  +1 (555) 123-4567
-                </a>
-              </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Support hours: Monday-Friday, 9AM-6PM EST</p>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Ticket className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">No tickets found</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">Create a new ticket to get started</p>
+                </div>
+              )}
             </div>
           </div>
-        </div>
+        </main>
+      </div>
 
-        {/* AI-Powered Features Section */}
-        <div className="mt-8 bg-gradient-to-r from-purple-500 to-blue-600 dark:from-purple-600 dark:to-blue-700 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
-                <Brain className="h-6 w-6" />
-                AI-Powered Support
-              </h2>
-              <p className="text-purple-100 dark:text-purple-200 mb-4">Get instant help with our intelligent AI features</p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <Brain className="h-4 w-4" />
-                  Smart Ticket Categorization
-                </div>
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4" />
-                  AI Chat Support
-                </div>
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  Predictive Analytics
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowSmartAssistant(true)}
-                className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-              >
-                <Brain className="h-4 w-4" />
-                Smart Assistant
-              </button>
-              <button
-                onClick={() => setShowChatbot(true)}
-                className="bg-white text-purple-600 dark:text-purple-700 px-4 py-2 rounded-lg font-medium hover:bg-purple-50 dark:hover:bg-purple-100 transition-colors flex items-center gap-2"
-              >
-                <MessageCircle className="h-4 w-4" />
-                Start Chat
-              </button>
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* Enhanced Modals */}
-      <CreateTicketModal
-        isOpen={showCreateTicket}
-        onClose={() => setShowCreateTicket(false)}
-        onSubmit={handleCreateTicket}
-        currentUser={user}
-      />
-
+      {/* Modals */}
       {selectedTicket && (
-        <TicketDetailModal
+        <EnhancedTicketDetailModal
           ticket={selectedTicket}
-          isOpen={!!selectedTicket}
           onClose={() => setSelectedTicket(null)}
           onUpdate={handleTicketUpdate}
-          currentUser={user}
           availableUsers={[]}
         />
       )}
 
-      {/* Knowledge Base Modal */}
-      {showKnowledgeBase && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Knowledge Base</h2>
-              <button
-                onClick={() => setShowKnowledgeBase(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                ✕
-              </button>
-            </div>
-            <KnowledgeBase />
-          </div>
-        </div>
+      {showExportModal && (
+        <ExportModal
+          onClose={() => setShowExportModal(false)}
+          onExport={handleQuickAction}
+          data={{ tickets: clientTickets, type: 'tickets' }}
+        />
       )}
 
-      {/* Settings Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Settings</h2>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                ✕
-              </button>
-            </div>
-            <ClientSettings onClose={() => setShowSettings(false)} />
-          </div>
-        </div>
+      {showTestRunner && (
+        <TestRunner
+          onClose={() => setShowTestRunner(false)}
+          onRunTests={() => console.log('Running tests...')}
+        />
       )}
 
-      {/* Phase 2 AI Modals */}
-      {/* Smart Ticket Assistant Modal */}
-      {showSmartAssistant && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <SmartTicketAssistant
-              ticketContent={ticketContent}
-              onSuggestionSelect={handleSmartAssistantSuggestion}
-              onClose={() => setShowSmartAssistant(false)}
-            />
-          </div>
-        </div>
+      {showPhase2Demo && (
+        <Phase2Demo
+          onClose={() => setShowPhase2Demo(false)}
+          onFeatureToggle={() => console.log('Feature toggled')}
+        />
       )}
 
-      {/* Analytics Modal */}
-      {showAnalytics && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <ClientAnalytics
-              userId={user.id}
-              onClose={() => setShowAnalytics(false)}
-            />
-          </div>
-        </div>
+      {showPhase4Demo && (
+        <Phase4Demo
+          onClose={() => setShowPhase4Demo(false)}
+          onIntegrationSetup={() => console.log('Integration setup')}
+        />
       )}
 
-      {/* Self-Service Tools Modal */}
-      {showSelfService && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <SelfServiceTools
-              onClose={() => setShowSelfService(false)}
-              onCreateTicket={handleCreateTicket}
-            />
-          </div>
-        </div>
+      {showChat && (
+        <ChatInterface
+          onClose={() => setShowChat(false)}
+          notifications={chatNotifications}
+          onSendMessage={(message) => console.log('Sending message:', message)}
+        />
       )}
 
-      {/* AI Chatbot */}
-      <SupportChatbot
-        isOpen={showChatbot}
-        onToggle={() => setShowChatbot(!showChatbot)}
-        onCreateTicket={handleChatbotTicketCreation}
+      <NotificationManager
+        notifications={chatNotifications}
+        onNotificationClick={(notification) => console.log('Notification clicked:', notification)}
       />
     </div>
   );

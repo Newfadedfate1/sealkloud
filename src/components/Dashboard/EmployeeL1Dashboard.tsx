@@ -6,6 +6,7 @@ import { EnhancedTicketDetailModal } from '../TicketDetail/EnhancedTicketDetailM
 import { TicketHistoryModal } from '../TicketHistory/TicketHistoryModal';
 import { useTickets } from '../../contexts/TicketContext';
 import { TicketManagementService } from '../../services/ticketManagement';
+import { ticketsAPI } from '../../services/api';
 import { EmployeePerformanceMetrics } from './EmployeePerformanceMetrics';
 import { QuickActionsPanel } from './QuickActionsPanel';
 import { EmployeeKnowledgeBase } from './EmployeeKnowledgeBase';
@@ -91,9 +92,16 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
     timestamp: Date;
   }>>([]);
   
-  // Filter tickets for L1 using the new system
-  const myTickets = tickets.filter(ticket => ticket.assignedTo === user.id);
-  const availableTickets = ticketService.getAvailableTicketsForLevel('l1');
+  // State for ticket assignment system
+  const [myTickets, setMyTickets] = useState<TicketType[]>([]);
+  const [availableTickets, setAvailableTickets] = useState<TicketType[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+  const [ticketStats, setTicketStats] = useState({
+    assigned: 0,
+    inProgress: 0,
+    resolved: 0,
+    available: 0
+  });
   
   // Debug logging
   console.log('🔍 Ticket Debug Info:', {
@@ -108,12 +116,48 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
     myTicketsDetails: myTickets.map(t => ({ id: t.id, assignedTo: t.assignedTo, status: t.status, isAvailable: t.isAvailableForAssignment }))
   });
   
-  const userStats = {
-    assigned: myTickets.length,
-    inProgress: myTickets.filter(t => t.status === 'in-progress').length,
-    resolved: myTickets.filter(t => t.status === 'resolved').length,
-    available: availableTickets.length
+  // Load tickets from API
+  const loadTickets = async () => {
+    setLoadingTickets(true);
+    try {
+      // Load my tickets
+      const myTicketsResponse = await ticketsAPI.getMyTickets();
+      if (myTicketsResponse.success && myTicketsResponse.data) {
+        setMyTickets(myTicketsResponse.data.tickets || []);
+      }
+
+      // Load available tickets
+      const availableTicketsResponse = await ticketsAPI.getAvailableTickets();
+      if (availableTicketsResponse.success && availableTicketsResponse.data) {
+        setAvailableTickets(availableTicketsResponse.data.tickets || []);
+      }
+
+      // Update stats
+      const myTicketsData = myTicketsResponse.success ? (myTicketsResponse.data.tickets || []) : [];
+      setTicketStats({
+        assigned: myTicketsData.length,
+        inProgress: myTicketsData.filter((t: any) => t.status === 'in-progress').length,
+        resolved: myTicketsData.filter((t: any) => t.status === 'resolved').length,
+        available: availableTicketsResponse.success ? (availableTicketsResponse.data.tickets || []).length : 0
+      });
+    } catch (error) {
+      console.error('Error loading tickets:', error);
+      showToast('Failed to load tickets', 'error');
+    } finally {
+      setLoadingTickets(false);
+    }
   };
+
+  // Load tickets on component mount and when user changes
+  useEffect(() => {
+    loadTickets();
+  }, [user.id]);
+
+  // Auto-refresh tickets every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(loadTickets, 30000);
+    return () => clearInterval(interval);
+  }, [user.id]);
 
   const availableUsers = [
     { id: '2', email: 'employee@sealkloud.com', firstName: 'Jane', lastName: 'Employee', role: 'employee_l1' as const, companyId: 'sealkloud', isActive: true },
@@ -131,12 +175,19 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
     setSelectedTicket(null);
   };
 
-  const handleTakeTicket = (ticketId: string) => {
-    const result = takeTicket(ticketId, user.id);
-    if (result.success) {
-      showToast(result.message, 'success');
-    } else {
-      showToast(result.message, 'error');
+  const handleTakeTicket = async (ticketId: string) => {
+    try {
+      const response = await ticketsAPI.claimTicket(ticketId);
+      if (response.success) {
+        showToast('Ticket successfully claimed!', 'success');
+        // Reload tickets to update the lists
+        await loadTickets();
+      } else {
+        showToast(response.error?.message || 'Failed to claim ticket', 'error');
+      }
+    } catch (error) {
+      console.error('Error claiming ticket:', error);
+      showToast('Failed to claim ticket', 'error');
     }
   };
 
@@ -636,19 +687,19 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
           {/* Simple Stats Overview */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">{userStats.assigned}</div>
+                              <div className="text-2xl font-bold text-gray-900 dark:text-white">{ticketStats.assigned}</div>
               <div className="text-sm text-gray-600 dark:text-gray-400">My Tickets</div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
-              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{userStats.inProgress}</div>
+                              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{ticketStats.inProgress}</div>
               <div className="text-sm text-gray-600 dark:text-gray-400">In Progress</div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{userStats.resolved}</div>
+                              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{ticketStats.resolved}</div>
               <div className="text-sm text-gray-600 dark:text-gray-400">Resolved Today</div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{userStats.available}</div>
+                              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{ticketStats.available}</div>
               <div className="text-sm text-gray-600 dark:text-gray-400">Available</div>
             </div>
           </div>
@@ -682,11 +733,27 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
             {/* Available Tickets - Left Column */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
               <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Available Tickets</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Low and medium priority tickets you can take</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">Available Tickets</h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Unassigned tickets you can claim</p>
+                  </div>
+                  <button
+                    onClick={loadTickets}
+                    disabled={loadingTickets}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
+                  >
+                    {loadingTickets ? 'Loading...' : 'Refresh'}
+                  </button>
+                </div>
               </div>
               <div className="p-6">
-                {availableTickets.length > 0 ? (
+                {loadingTickets ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-500 dark:text-gray-400">Loading tickets...</p>
+                  </div>
+                ) : availableTickets.length > 0 ? (
                   <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                     {availableTickets.slice(0, 5).map(ticket => (
                       <div 
@@ -768,20 +835,34 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                     <h2 className="text-lg font-bold text-gray-900 dark:text-white">My Tickets</h2>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Tickets assigned to you</p>
                   </div>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search tickets..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
-                    />
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search tickets..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
+                      />
+                    </div>
+                    <button
+                      onClick={loadTickets}
+                      disabled={loadingTickets}
+                      className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-3 py-2 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
+                    >
+                      {loadingTickets ? 'Loading...' : 'Refresh'}
+                    </button>
                   </div>
                 </div>
               </div>
               <div className="p-6">
-                {filteredMyTickets.length > 0 ? (
+                {loadingTickets ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
+                    <p className="text-gray-500 dark:text-gray-400">Loading tickets...</p>
+                  </div>
+                ) : filteredMyTickets.length > 0 ? (
                   <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                     {filteredMyTickets.map(ticket => (
                       <div 

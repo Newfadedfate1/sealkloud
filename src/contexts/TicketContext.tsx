@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Ticket } from '../types/ticket';
 import { User } from '../types/user';
-import { mockTickets } from '../data/mockTickets';
 import { ticketsAPI, api } from '../services/api';
 import { TicketManagementService } from '../services/ticketManagement';
 
@@ -21,7 +20,7 @@ interface TicketContextType {
 
 const TicketContext = createContext<TicketContextType | undefined>(undefined);
 
-const useTickets = () => {
+export const useTickets = () => {
   const context = useContext(TicketContext);
   if (context === undefined) {
     throw new Error('useTickets must be used within a TicketProvider');
@@ -29,16 +28,14 @@ const useTickets = () => {
   return context;
 };
 
-export { useTickets };
-
 interface TicketProviderProps {
   children: ReactNode;
 }
 
 export const TicketProvider: React.FC<TicketProviderProps> = ({ children }) => {
-  const [tickets, setTickets] = useState<Ticket[]>(mockTickets);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isUsingMockData, setIsUsingMockData] = useState(true);
+  const [isUsingMockData, setIsUsingMockData] = useState(false);
   
   // Initialize ticket management service
   const ticketService = TicketManagementService.getInstance();
@@ -50,27 +47,32 @@ export const TicketProvider: React.FC<TicketProviderProps> = ({ children }) => {
 
   // Initialize ticket service when tickets change
   useEffect(() => {
-    // Mock users for the service (in a real app, this would come from user context)
-    const mockUsers: User[] = [
-      { id: '1', email: 'client@sealkloud.com', firstName: 'John', lastName: 'Client', role: 'client', companyId: 'client1', isActive: true },
-      { id: '2', email: 'employee@sealkloud.com', firstName: 'Jane', lastName: 'Employee', role: 'employee_l1', companyId: 'sealkloud', isActive: true },
-      { id: '4', email: 'l2tech@sealkloud.com', firstName: 'Level 2', lastName: 'Tech', role: 'employee_l2', companyId: 'sealkloud', isActive: true },
-      { id: '5', email: 'l3expert@sealkloud.com', firstName: 'Level 3', lastName: 'Expert', role: 'employee_l3', companyId: 'sealkloud', isActive: true }
-    ];
-    
-    console.log('🔄 Context: Initializing ticket service', {
-      ticketsCount: tickets.length,
-      mockUsersCount: mockUsers.length,
-      mockUsers: mockUsers.map(u => ({ id: u.id, email: u.email, role: u.role }))
-    });
-    
-    ticketService.initialize(tickets, mockUsers);
+    // Get users from API or use empty array if not available
+    const initializeService = async () => {
+      try {
+        const usersResponse = await api.get('/users');
+        const users: User[] = usersResponse.success ? usersResponse.data : [];
+        
+        console.log('🔄 Context: Initializing ticket service', {
+          ticketsCount: tickets.length,
+          usersCount: users.length,
+          users: users.map(u => ({ id: u.id, email: u.email, role: u.role }))
+        });
+        
+        ticketService.initialize(tickets, users);
+      } catch (error) {
+        console.error('Error loading users for ticket service:', error);
+        // Initialize with empty users array
+        ticketService.initialize(tickets, []);
+      }
+    };
+
+    initializeService();
   }, [tickets, ticketService]);
 
   const loadTickets = async () => {
     setIsLoading(true);
     try {
-      // Try to use real API
       const response = await ticketsAPI.getAll();
       if (response.success && response.data) {
         setTickets(response.data);
@@ -81,66 +83,47 @@ export const TicketProvider: React.FC<TicketProviderProps> = ({ children }) => {
       }
     } catch (error) {
       console.error('Error loading tickets:', error);
-      // Fallback to mock data on error
-      setTickets(mockTickets);
-      setIsUsingMockData(true);
-      console.log('⚠️ API unavailable, using mock data');
+      setTickets([]);
+      setIsUsingMockData(false);
+      console.log('⚠️ API unavailable, using empty data');
     } finally {
       setIsLoading(false);
     }
   };
 
   const addTicket = async (ticket: Ticket) => {
-    if (!isUsingMockData) {
-      try {
-        // Try to save to API
-        const response = await ticketsAPI.create(ticket);
-        if (response.success && response.data) {
-          setTickets(prev => [response.data, ...prev]);
-          return;
-        }
-      } catch (error) {
-        console.error('Error creating ticket via API:', error);
-        // Fallback to local state
+    try {
+      const response = await ticketsAPI.create(ticket);
+      if (response.success && response.data) {
+        setTickets(prev => [response.data, ...prev]);
+        return;
       }
+    } catch (error) {
+      console.error('Error creating ticket via API:', error);
+      throw error;
     }
-    
-    // Use local state (mock data mode or API fallback)
-    setTickets(prev => [ticket, ...prev]);
   };
 
   const updateTicket = async (ticketId: string, updates: Partial<Ticket>) => {
-    if (!isUsingMockData) {
-      try {
-        // Try to update via API
-        const response = await ticketsAPI.update(ticketId, updates);
-        if (response.success && response.data) {
-          setTickets(prev => prev.map(ticket => 
-            ticket.id === ticketId ? response.data : ticket
-          ));
-          return;
-        }
-      } catch (error) {
-        console.error('Error updating ticket via API:', error);
-        // Fallback to local state
+    try {
+      const response = await ticketsAPI.update(ticketId, updates);
+      if (response.success && response.data) {
+        setTickets(prev => prev.map(ticket => 
+          ticket.id === ticketId ? { ...ticket, ...response.data } : ticket
+        ));
+        return;
       }
+    } catch (error) {
+      console.error('Error updating ticket via API:', error);
+      throw error;
     }
-    
-    // Use local state (mock data mode or API fallback)
-    setTickets(prev => prev.map(ticket => 
-      ticket.id === ticketId ? { ...ticket, ...updates } : ticket
-    ));
   };
 
-  // Update ticket using the ticket management service
   const updateTicketViaService = (ticketId: string, updates: Partial<Ticket>) => {
-    // Update in the service first
     const result = ticketService.updateTicket(ticketId, updates);
-    if (result.success && result.ticket) {
-      // Then update the context state with the service's updated tickets
+    if (result.success) {
       const updatedTickets = ticketService.getAllTickets();
       setTickets(updatedTickets);
-      return result;
     }
     return result;
   };
@@ -161,13 +144,17 @@ export const TicketProvider: React.FC<TicketProviderProps> = ({ children }) => {
       setTickets(updatedTickets);
       
       // Force re-initialization of the service with updated tickets
-      const mockUsers: User[] = [
-        { id: '1', email: 'client@sealkloud.com', firstName: 'John', lastName: 'Client', role: 'client', companyId: 'client1', isActive: true },
-        { id: '2', email: 'employee@sealkloud.com', firstName: 'Jane', lastName: 'Employee', role: 'employee_l1', companyId: 'sealkloud', isActive: true },
-        { id: '4', email: 'l2tech@sealkloud.com', firstName: 'Level 2', lastName: 'Tech', role: 'employee_l2', companyId: 'sealkloud', isActive: true },
-        { id: '5', email: 'l3expert@sealkloud.com', firstName: 'Level 3', lastName: 'Expert', role: 'employee_l3', companyId: 'sealkloud', isActive: true }
-      ];
-      ticketService.initialize(updatedTickets, mockUsers);
+      const initializeService = async () => {
+        try {
+          const usersResponse = await api.get('/users');
+          const users: User[] = usersResponse.success ? usersResponse.data : [];
+          ticketService.initialize(updatedTickets, users);
+        } catch (error) {
+          console.error('Error loading users for ticket service:', error);
+          ticketService.initialize(updatedTickets, []);
+        }
+      };
+      initializeService();
     } else {
       console.log('❌ Context: Failed to take ticket', { ticketId, userId, error: result.message });
     }
@@ -183,13 +170,17 @@ export const TicketProvider: React.FC<TicketProviderProps> = ({ children }) => {
       setTickets(updatedTickets);
       
       // Force re-initialization of the service with updated tickets
-      const mockUsers: User[] = [
-        { id: '1', email: 'client@sealkloud.com', firstName: 'John', lastName: 'Client', role: 'client', companyId: 'client1', isActive: true },
-        { id: '2', email: 'employee@sealkloud.com', firstName: 'Jane', lastName: 'Employee', role: 'employee_l1', companyId: 'sealkloud', isActive: true },
-        { id: '4', email: 'l2tech@sealkloud.com', firstName: 'Level 2', lastName: 'Tech', role: 'employee_l2', companyId: 'sealkloud', isActive: true },
-        { id: '5', email: 'l3expert@sealkloud.com', firstName: 'Level 3', lastName: 'Expert', role: 'employee_l3', companyId: 'sealkloud', isActive: true }
-      ];
-      ticketService.initialize(updatedTickets, mockUsers);
+      const initializeService = async () => {
+        try {
+          const usersResponse = await api.get('/users');
+          const users: User[] = usersResponse.success ? usersResponse.data : [];
+          ticketService.initialize(updatedTickets, users);
+        } catch (error) {
+          console.error('Error loading users for ticket service:', error);
+          ticketService.initialize(updatedTickets, []);
+        }
+      };
+      initializeService();
     }
     return result;
   };

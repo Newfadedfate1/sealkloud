@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { Ticket } from '../../types/ticket';
 import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
+import { useTickets } from '../../contexts/TicketContext';
+import { ticketsAPI } from '../../services/api';
 
 interface EmployeeTicketHistoryProps {
   userId: string;
@@ -37,6 +39,7 @@ export const EmployeeTicketHistory: React.FC<EmployeeTicketHistoryProps> = ({
   userName,
   onClose
 }) => {
+  const { tickets } = useTickets();
   const [resolvedTickets, setResolvedTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -53,231 +56,17 @@ export const EmployeeTicketHistory: React.FC<EmployeeTicketHistoryProps> = ({
 
   useEffect(() => {
     loadResolvedTickets();
-  }, [userId]);
+  }, [userId, tickets]);
 
   const loadResolvedTickets = async () => {
     setIsLoading(true);
     try {
-      // Mock data - replace with API call
-      const mockResolvedTickets: Ticket[] = [
-        {
-          id: 'TKT-001',
-          clientName: 'Acme Corp',
-          clientId: 'CLI-001',
-          title: 'Email configuration issue',
-          description: 'Client unable to configure email settings for new employees. Provided step-by-step configuration guide and resolved the issue.',
-          problemLevel: 'medium',
-          status: 'resolved',
-          assignedTo: userId,
-          assignedToName: userName,
-          submittedDate: new Date('2024-01-10T09:00:00'),
-          lastUpdated: new Date('2024-01-10T14:30:00'),
-          resolvedDate: new Date('2024-01-10T14:30:00'),
-          activityLog: [
-            {
-              id: 'ACT-001',
-              ticketId: 'TKT-001',
-              userId: userId,
-              userName: userName,
-              action: 'assigned',
-              description: 'Ticket assigned to support team',
-              timestamp: new Date('2024-01-10T09:15:00')
-            },
-            {
-              id: 'ACT-002',
-              ticketId: 'TKT-001',
-              userId: userId,
-              userName: userName,
-              action: 'status_changed',
-              description: 'Status changed to in-progress',
-              timestamp: new Date('2024-01-10T10:00:00')
-            },
-            {
-              id: 'ACT-003',
-              ticketId: 'TKT-001',
-              userId: userId,
-              userName: userName,
-              action: 'resolved',
-              description: 'Issue resolved - provided configuration guide',
-              timestamp: new Date('2024-01-10T14:30:00')
-            }
-          ]
-        },
-        {
-          id: 'TKT-002',
-          clientName: 'TechStart Inc',
-          clientId: 'CLI-002',
-          title: 'Database connection timeout',
-          description: 'Database connection was timing out during peak hours. Implemented connection pooling and optimized queries.',
-          problemLevel: 'high',
-          status: 'resolved',
-          assignedTo: userId,
-          assignedToName: userName,
-          submittedDate: new Date('2024-01-08T11:00:00'),
-          lastUpdated: new Date('2024-01-09T16:45:00'),
-          resolvedDate: new Date('2024-01-09T16:45:00'),
-          activityLog: [
-            {
-              id: 'ACT-004',
-              ticketId: 'TKT-002',
-              userId: userId,
-              userName: userName,
-              action: 'assigned',
-              description: 'Critical ticket assigned',
-              timestamp: new Date('2024-01-08T11:30:00')
-            },
-            {
-              id: 'ACT-005',
-              ticketId: 'TKT-002',
-              userId: userId,
-              userName: userName,
-              action: 'investigation',
-              description: 'Analyzing database performance metrics',
-              timestamp: new Date('2024-01-08T14:00:00')
-            },
-            {
-              id: 'ACT-006',
-              ticketId: 'TKT-002',
-              userId: userId,
-              userName: userName,
-              action: 'resolved',
-              description: 'Implemented connection pooling solution',
-              timestamp: new Date('2024-01-09T16:45:00')
-            }
-          ]
-        },
-        {
-          id: 'TKT-003',
-          clientName: 'Global Solutions',
-          clientId: 'CLI-003',
-          title: 'User authentication failed',
-          description: 'Users were unable to log in due to authentication server issues. Restarted services and cleared cache.',
-          problemLevel: 'critical',
-          status: 'resolved',
-          assignedTo: userId,
-          assignedToName: userName,
-          submittedDate: new Date('2024-01-05T08:00:00'),
-          lastUpdated: new Date('2024-01-05T12:00:00'),
-          resolvedDate: new Date('2024-01-05T12:00:00'),
-          activityLog: [
-            {
-              id: 'ACT-007',
-              ticketId: 'TKT-003',
-              userId: userId,
-              userName: userName,
-              action: 'emergency_response',
-              description: 'Critical authentication issue - immediate response required',
-              timestamp: new Date('2024-01-05T08:15:00')
-            },
-            {
-              id: 'ACT-008',
-              ticketId: 'TKT-003',
-              userId: userId,
-              userName: userName,
-              action: 'diagnosis',
-              description: 'Identified authentication server overload',
-              timestamp: new Date('2024-01-05T09:30:00')
-            },
-            {
-              id: 'ACT-009',
-              ticketId: 'TKT-003',
-              userId: userId,
-              userName: userName,
-              action: 'resolved',
-              description: 'Services restarted and cache cleared',
-              timestamp: new Date('2024-01-05T12:00:00')
-            }
-          ]
-        },
-        {
-          id: 'TKT-004',
-          clientName: 'Innovation Labs',
-          clientId: 'CLI-004',
-          title: 'API rate limiting configuration',
-          description: 'Client needed help configuring API rate limiting for their application. Provided documentation and examples.',
-          problemLevel: 'low',
-          status: 'resolved',
-          assignedTo: userId,
-          assignedToName: userName,
-          submittedDate: new Date('2024-01-12T13:00:00'),
-          lastUpdated: new Date('2024-01-12T15:30:00'),
-          resolvedDate: new Date('2024-01-12T15:30:00'),
-          activityLog: [
-            {
-              id: 'ACT-010',
-              ticketId: 'TKT-004',
-              userId: userId,
-              userName: userName,
-              action: 'assigned',
-              description: 'Ticket assigned for configuration assistance',
-              timestamp: new Date('2024-01-12T13:15:00')
-            },
-            {
-              id: 'ACT-011',
-              ticketId: 'TKT-004',
-              userId: userId,
-              userName: userName,
-              action: 'resolved',
-              description: 'Provided configuration guide and examples',
-              timestamp: new Date('2024-01-12T15:30:00')
-            }
-          ]
-        },
-        {
-          id: 'TKT-005',
-          clientName: 'DataFlow Systems',
-          clientId: 'CLI-005',
-          title: 'Backup restoration process',
-          description: 'Assisted client with restoring data from backup after system failure. Successfully restored all critical data.',
-          problemLevel: 'high',
-          status: 'resolved',
-          assignedTo: userId,
-          assignedToName: userName,
-          submittedDate: new Date('2024-01-03T10:00:00'),
-          lastUpdated: new Date('2024-01-04T18:00:00'),
-          resolvedDate: new Date('2024-01-04T18:00:00'),
-          activityLog: [
-            {
-              id: 'ACT-012',
-              ticketId: 'TKT-005',
-              userId: userId,
-              userName: userName,
-              action: 'assigned',
-              description: 'Critical backup restoration required',
-              timestamp: new Date('2024-01-03T10:30:00')
-            },
-            {
-              id: 'ACT-013',
-              ticketId: 'TKT-005',
-              userId: userId,
-              userName: userName,
-              action: 'backup_analysis',
-              description: 'Analyzing backup integrity and data structure',
-              timestamp: new Date('2024-01-03T14:00:00')
-            },
-            {
-              id: 'ACT-014',
-              ticketId: 'TKT-005',
-              userId: userId,
-              userName: userName,
-              action: 'restoration_progress',
-              description: 'Restoration in progress - 60% complete',
-              timestamp: new Date('2024-01-04T12:00:00')
-            },
-            {
-              id: 'ACT-015',
-              ticketId: 'TKT-005',
-              userId: userId,
-              userName: userName,
-              action: 'resolved',
-              description: 'All critical data successfully restored',
-              timestamp: new Date('2024-01-04T18:00:00')
-            }
-          ]
-        }
-      ];
-
-      setResolvedTickets(mockResolvedTickets);
+      // Filter tickets that are resolved and assigned to this user
+      const userResolvedTickets = tickets.filter(ticket => 
+        ticket.assignedTo === userId && 
+        (ticket.status === 'resolved' || ticket.status === 'closed')
+      );
+      setResolvedTickets(userResolvedTickets);
       
       // Calculate stats
       const now = new Date();
@@ -285,9 +74,9 @@ export const EmployeeTicketHistory: React.FC<EmployeeTicketHistoryProps> = ({
       const thisMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       
       const stats: HistoryStats = {
-        totalResolved: mockResolvedTickets.length,
-        thisMonth: mockResolvedTickets.filter(t => t.resolvedDate && t.resolvedDate >= thisMonth).length,
-        thisWeek: mockResolvedTickets.filter(t => t.resolvedDate && t.resolvedDate >= thisWeek).length,
+        totalResolved: userResolvedTickets.length,
+        thisMonth: userResolvedTickets.filter(t => t.resolvedDate && t.resolvedDate >= thisMonth).length,
+        thisWeek: userResolvedTickets.filter(t => t.resolvedDate && t.resolvedDate >= thisWeek).length,
         avgResolutionTime: 4.2, // Mock calculation
         satisfactionScore: 4.8 // Mock score
       };

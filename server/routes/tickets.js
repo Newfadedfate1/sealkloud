@@ -389,4 +389,230 @@ router.get('/:ticketId/chats', async (req, res, next) => {
   }
 });
 
+// Claim/Assign ticket to current employee
+router.post('/:ticketId/claim', requireEmployee, async (req, res, next) => {
+  try {
+    const { ticketId } = req.params;
+    const db = getDatabase();
+
+    // Get current ticket
+    const ticket = await db.get(
+      'SELECT * FROM tickets WHERE ticket_id = ?',
+      [ticketId]
+    );
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    // Check if ticket is available for assignment
+    if (ticket.status !== 'unassigned' && ticket.status !== 'open') {
+      return res.status(400).json({ error: 'Ticket is not available for assignment' });
+    }
+
+    if (ticket.assigned_to) {
+      return res.status(400).json({ error: 'Ticket is already assigned to another employee' });
+    }
+
+    // Check if user is Level 1 employee (only Level 1 can claim unassigned tickets)
+    if (!req.user.role.startsWith('employee_l1')) {
+      return res.status(403).json({ error: 'Only Level 1 employees can claim unassigned tickets' });
+    }
+
+    // Assign ticket to current user
+    await db.run(`
+      UPDATE tickets 
+      SET assigned_to = ?, status = 'in-progress', last_updated = CURRENT_TIMESTAMP
+      WHERE ticket_id = ?
+    `, [req.user.id, ticketId]);
+
+    // Log the assignment activity
+    await db.run(`
+      INSERT INTO ticket_activities (ticket_id, user_id, action, description)
+      VALUES (?, ?, 'taken', ?)
+    `, [ticket.id, req.user.id, `Ticket claimed by ${req.user.first_name} ${req.user.last_name}`]);
+
+    // Get updated ticket
+    const updatedTicket = await db.get(`
+      SELECT 
+        t.*,
+        u.first_name || ' ' || u.last_name as assigned_to_name
+      FROM tickets t
+      LEFT JOIN users u ON t.assigned_to = u.id
+      WHERE t.ticket_id = ?
+    `, [ticketId]);
+
+    res.json({
+      success: true,
+      message: 'Ticket successfully claimed',
+      ticket: {
+        id: updatedTicket.ticket_id,
+        clientName: updatedTicket.client_name,
+        clientId: updatedTicket.client_id,
+        title: updatedTicket.title,
+        description: updatedTicket.description,
+        problemLevel: updatedTicket.problem_level,
+        status: updatedTicket.status,
+        assignedTo: updatedTicket.assigned_to,
+        assignedToName: updatedTicket.assigned_to_name,
+        submittedDate: updatedTicket.submitted_date,
+        lastUpdated: updatedTicket.last_updated,
+        resolvedDate: updatedTicket.resolved_date
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get available tickets for Level 1 employees (unassigned tickets)
+router.get('/available/l1', requireEmployee, async (req, res, next) => {
+  try {
+    const { page = 1, limit = 50, search } = req.query;
+    const offset = (page - 1) * limit;
+    const db = getDatabase();
+
+    // Check if user is Level 1 employee
+    if (!req.user.role.startsWith('employee_l1')) {
+      return res.status(403).json({ error: 'Only Level 1 employees can view available tickets' });
+    }
+
+    let whereConditions = ['t.status IN (?, ?)', 't.assigned_to IS NULL'];
+    let queryParams = ['unassigned', 'open'];
+
+    if (search) {
+      whereConditions.push(`(
+        t.title LIKE ? OR 
+        t.description LIKE ? OR 
+        t.client_name LIKE ? OR
+        t.ticket_id LIKE ?
+      )`);
+      const searchPattern = `%${search}%`;
+      queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern);
+    }
+
+    const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+
+    // Get total count
+    const countQuery = `SELECT COUNT(*) as total FROM tickets t ${whereClause}`;
+    const countResult = await db.get(countQuery, queryParams);
+    const total = countResult.total;
+
+    // Get available tickets
+    const ticketsQuery = `
+      SELECT 
+        t.*,
+        u.first_name || ' ' || u.last_name as assigned_to_name
+      FROM tickets t
+      LEFT JOIN users u ON t.assigned_to = u.id
+      ${whereClause}
+      ORDER BY t.submitted_date ASC
+      LIMIT ? OFFSET ?
+    `;
+
+    queryParams.push(limit, offset);
+    const result = await db.all(ticketsQuery, queryParams);
+
+    res.json({
+      tickets: result.map(row => ({
+        id: row.ticket_id,
+        clientName: row.client_name,
+        clientId: row.client_id,
+        title: row.title,
+        description: row.description,
+        problemLevel: row.problem_level,
+        status: row.status,
+        assignedTo: row.assigned_to,
+        assignedToName: row.assigned_to_name,
+        submittedDate: row.submitted_date,
+        lastUpdated: row.last_updated,
+        resolvedDate: row.resolved_date
+      })),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get my tickets (assigned to current employee)
+router.get('/my-tickets', requireEmployee, async (req, res, next) => {
+  try {
+    const { page = 1, limit = 50, status, search } = req.query;
+    const offset = (page - 1) * limit;
+    const db = getDatabase();
+
+    let whereConditions = ['t.assigned_to = ?'];
+    let queryParams = [req.user.id];
+
+    if (status) {
+      whereConditions.push('t.status = ?');
+      queryParams.push(status);
+    }
+
+    if (search) {
+      whereConditions.push(`(
+        t.title LIKE ? OR 
+        t.description LIKE ? OR 
+        t.client_name LIKE ? OR
+        t.ticket_id LIKE ?
+      )`);
+      const searchPattern = `%${search}%`;
+      queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern);
+    }
+
+    const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+
+    // Get total count
+    const countQuery = `SELECT COUNT(*) as total FROM tickets t ${whereClause}`;
+    const countResult = await db.get(countQuery, queryParams);
+    const total = countResult.total;
+
+    // Get my tickets
+    const ticketsQuery = `
+      SELECT 
+        t.*,
+        u.first_name || ' ' || u.last_name as assigned_to_name
+      FROM tickets t
+      LEFT JOIN users u ON t.assigned_to = u.id
+      ${whereClause}
+      ORDER BY t.last_updated DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    queryParams.push(limit, offset);
+    const result = await db.all(ticketsQuery, queryParams);
+
+    res.json({
+      tickets: result.map(row => ({
+        id: row.ticket_id,
+        clientName: row.client_name,
+        clientId: row.client_id,
+        title: row.title,
+        description: row.description,
+        problemLevel: row.problem_level,
+        status: row.status,
+        assignedTo: row.assigned_to,
+        assignedToName: row.assigned_to_name,
+        submittedDate: row.submitted_date,
+        lastUpdated: row.last_updated,
+        resolvedDate: row.resolved_date
+      })),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export { router as ticketRoutes };

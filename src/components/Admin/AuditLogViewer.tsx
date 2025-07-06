@@ -1,544 +1,409 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, FileText, Activity, AlertTriangle, AlertCircle, Info, Zap, RefreshCw, Search, Filter, Download, Calendar, User, Clock } from 'lucide-react';
+import { Search, Filter, Download, Calendar, User, Activity, Eye, EyeOff, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { auditAPI } from '../../services/api';
 
-export interface AuditLogEntry {
+interface AuditLogEntry {
   id: string;
-  userId?: string;
-  userEmail: string;
+  user_id: string;
+  user_email: string;
   action: string;
-  resourceType: string;
-  resourceId?: string;
-  resourceName?: string;
-  details?: string;
-  ipAddress?: string;
-  userAgent?: string;
-  severity: 'info' | 'warning' | 'error' | 'critical';
+  resource_type: string;
+  resource_id: string;
+  resource_name: string;
+  details: string;
+  ip_address: string;
+  user_agent: string;
   timestamp: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
 }
 
 interface AuditStats {
-  total: number;
-  bySeverity: Record<string, number>;
-  byAction: Array<{ action: string; count: number }>;
-  recentActivity: number;
-  byResourceType: Array<{ resource_type: string; count: number }>;
+  totalLogs: number;
+  todayLogs: number;
+  thisWeekLogs: number;
+  thisMonthLogs: number;
+  topActions: Array<{ action: string; count: number }>;
+  topUsers: Array<{ user: string; count: number }>;
 }
 
-interface AuditFilters {
-  search: string;
-  action: string;
-  resourceType: string;
-  severity: string;
-  userEmail: string;
-  startDate: string;
-  endDate: string;
+interface AuditLogViewerProps {
+  onClose: () => void;
 }
 
-// Mock audit log data
-const mockAuditLogs: AuditLogEntry[] = [
-  {
-    id: '1',
-    userEmail: 'admin@sealkloud.com',
-    action: 'user_login',
-    resourceType: 'auth',
-    details: 'Successful login',
-    severity: 'info',
-    timestamp: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
-  },
-  {
-    id: '2',
-    userEmail: 'employee@sealkloud.com',
-    action: 'ticket_created',
-    resourceType: 'ticket',
-    resourceId: 'TICKET-001',
-    details: 'New support ticket created',
-    severity: 'info',
-    timestamp: new Date(Date.now() - 600000).toISOString(), // 10 minutes ago
-  },
-  {
-    id: '3',
-    userEmail: 'client@sealkloud.com',
-    action: 'user_login',
-    resourceType: 'auth',
-    details: 'Failed login attempt',
-    severity: 'warning',
-    timestamp: new Date(Date.now() - 900000).toISOString(), // 15 minutes ago
-  },
-  {
-    id: '4',
-    userEmail: 'admin@sealkloud.com',
-    action: 'user_created',
-    resourceType: 'user',
-    resourceId: 'USER-005',
-    details: 'New user account created',
-    severity: 'info',
-    timestamp: new Date(Date.now() - 1200000).toISOString(), // 20 minutes ago
-  },
-  {
-    id: '5',
-    userEmail: 'l2tech@sealkloud.com',
-    action: 'ticket_updated',
-    resourceType: 'ticket',
-    resourceId: 'TICKET-002',
-    details: 'Ticket status changed to In Progress',
-    severity: 'info',
-    timestamp: new Date(Date.now() - 1800000).toISOString(), // 30 minutes ago
-  },
-  {
-    id: '6',
-    userEmail: 'admin@sealkloud.com',
-    action: 'system_backup',
-    resourceType: 'system',
-    details: 'Database backup completed',
-    severity: 'info',
-    timestamp: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-  },
-  {
-    id: '7',
-    userEmail: 'unknown@sealkloud.com',
-    action: 'user_login',
-    resourceType: 'auth',
-    details: 'Multiple failed login attempts',
-    severity: 'error',
-    timestamp: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
-  },
-  {
-    id: '8',
-    userEmail: 'admin@sealkloud.com',
-    action: 'role_updated',
-    resourceType: 'user',
-    resourceId: 'USER-003',
-    details: 'User role changed from employee to admin',
-    severity: 'warning',
-    timestamp: new Date(Date.now() - 10800000).toISOString(), // 3 hours ago
-  }
-];
-
-const mockStats: AuditStats = {
-  total: mockAuditLogs.length,
-  bySeverity: {
-    info: 5,
-    warning: 2,
-    error: 1,
-    critical: 0
-  },
-  byAction: [
-    { action: 'user_login', count: 3 },
-    { action: 'ticket_created', count: 1 },
-    { action: 'ticket_updated', count: 1 },
-    { action: 'user_created', count: 1 },
-    { action: 'system_backup', count: 1 },
-    { action: 'role_updated', count: 1 }
-  ],
-  recentActivity: 3,
-  byResourceType: [
-    { resource_type: 'auth', count: 3 },
-    { resource_type: 'ticket', count: 2 },
-    { resource_type: 'user', count: 2 },
-    { resource_type: 'system', count: 1 }
-  ]
-};
-
-export const AuditLogViewer: React.FC = () => {
-  const [logs, setLogs] = useState<AuditLogEntry[]>(mockAuditLogs);
-  const [stats, setStats] = useState<AuditStats>(mockStats);
+export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ onClose }) => {
+  // State management
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const [stats, setStats] = useState<AuditStats>({
+    totalLogs: 0,
+    todayLogs: 0,
+    thisWeekLogs: 0,
+    thisMonthLogs: 0,
+    topActions: [],
+    topUsers: []
+  });
   const [loading, setLoading] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(false);
-  const [filters, setFilters] = useState<AuditFilters>({
-    search: '',
+  const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
+  const [filters, setFilters] = useState({
     action: '',
     resourceType: '',
     severity: '',
     userEmail: '',
     startDate: '',
-    endDate: ''
+    endDate: '',
+    search: ''
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [itemsPerPage] = useState(20);
 
-  // Filter logs based on current filters
-  const filteredLogs = logs.filter(log => {
-    if (filters.search && !log.details?.toLowerCase().includes(filters.search.toLowerCase())) {
-      return false;
-    }
-    if (filters.action && log.action !== filters.action) {
-      return false;
-    }
-    if (filters.resourceType && log.resourceType !== filters.resourceType) {
-      return false;
-    }
-    if (filters.severity && log.severity !== filters.severity) {
-      return false;
-    }
-    if (filters.userEmail && !log.userEmail.toLowerCase().includes(filters.userEmail.toLowerCase())) {
-      return false;
-    }
-    return true;
-  });
+  // Load audit logs from API
+  const loadAuditLogs = async () => {
+    setLoading(true);
+    try {
+      const response = await auditAPI.getAll({
+        page: currentPage,
+        limit: itemsPerPage,
+        action: filters.action || undefined,
+        resourceType: filters.resourceType || undefined,
+        severity: filters.severity || undefined,
+        userEmail: filters.userEmail || undefined,
+        startDate: filters.startDate || undefined,
+        endDate: filters.endDate || undefined,
+        search: filters.search || undefined
+      });
 
-  // Get severity icon and color
-  const getSeverityInfo = (severity: string) => {
-    switch (severity) {
-      case 'critical':
-        return { icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' };
-      case 'error':
-        return { icon: AlertCircle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' };
-      case 'warning':
-        return { icon: AlertTriangle, color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200' };
-      default:
-        return { icon: Info, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' };
+      if (response.success && response.data) {
+        setLogs(response.data.logs || []);
+        setTotalPages(response.data.pagination?.pages || 1);
+      }
+    } catch (error) {
+      console.error('Error loading audit logs:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Format timestamp
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
-    return date.toLocaleDateString();
+  // Load audit stats
+  const loadAuditStats = async () => {
+    try {
+      const response = await auditAPI.getStats();
+      if (response.success && response.data) {
+        setStats(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading audit stats:', error);
+    }
   };
 
-  // Handle filter changes
-  const handleFilterChange = (key: keyof AuditFilters, value: string) => {
+  // Load data on mount and when filters change
+  useEffect(() => {
+    loadAuditLogs();
+    loadAuditStats();
+  }, [currentPage, filters]);
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadAuditLogs();
+      loadAuditStats();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
+    setCurrentPage(1); // Reset to first page when filters change
   };
 
-  // Clear all filters
-  const clearFilters = () => {
-    setFilters({
-      search: '',
-      action: '',
-      resourceType: '',
-      severity: '',
-      userEmail: '',
-      startDate: '',
-      endDate: ''
+  const toggleLogExpansion = (logId: string) => {
+    setExpandedLogs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(logId)) {
+        newSet.delete(logId);
+      } else {
+        newSet.add(logId);
+      }
+      return newSet;
     });
   };
 
-  // Export logs
-  const handleExport = (format: 'csv' | 'json') => {
+  const handleExport = async (format: 'csv' | 'json') => {
     try {
-      let data: string;
-      let filename: string;
-      let mimeType: string;
-
-      if (format === 'csv') {
-        const headers = ['ID', 'User Email', 'Action', 'Resource Type', 'Details', 'Severity', 'Timestamp'];
-        const csvContent = [
-          headers.join(','),
-          ...filteredLogs.map(log => [
-            log.id,
-            log.userEmail,
-            log.action,
-            log.resourceType,
-            log.details?.replace(/,/g, ';') || '',
-            log.severity,
-            log.timestamp
-          ].join(','))
-        ].join('\n');
-        
-        data = csvContent;
-        filename = `audit_logs_${new Date().toISOString().split('T')[0]}.csv`;
-        mimeType = 'text/csv';
-      } else {
-        data = JSON.stringify(filteredLogs, null, 2);
-        filename = `audit_logs_${new Date().toISOString().split('T')[0]}.json`;
-        mimeType = 'application/json';
+      const response = await auditAPI.export(format, filters.startDate, filters.endDate);
+      if (response.success) {
+        // Handle export download
+        console.log('Export successful:', response.data);
       }
-
-      const blob = new Blob([data], { type: mimeType });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Export error:', error);
+      console.error('Error exporting audit logs:', error);
     }
   };
 
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'critical': return 'bg-red-100 text-red-800 border-red-200';
+      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'low': return 'bg-green-100 text-green-800 border-green-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const formatTimestamp = (timestamp: string) => {
+    return new Date(timestamp).toLocaleString();
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white p-6 rounded-2xl">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/20 rounded-lg">
-              <Shield className="h-6 w-6" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">Audit Log</h2>
-              <p className="text-indigo-100 mt-1">Monitor system activity and security events</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setAutoRefresh(!autoRefresh)}
-              className={`p-2 rounded-lg transition-colors ${
-                autoRefresh ? 'bg-white/20' : 'hover:bg-white/10'
-              }`}
-              title={autoRefresh ? 'Auto-refresh enabled' : 'Enable auto-refresh'}
-            >
-              <Zap className={`h-5 w-5 ${autoRefresh ? 'text-yellow-300' : ''}`} />
-            </button>
-            <button
-              onClick={() => handleExport('csv')}
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-              title="Export CSV"
-            >
-              <Download className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Statistics Dashboard */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-7xl h-full max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-600 text-sm font-medium">Total Logs</p>
-              <p className="text-2xl font-bold text-blue-900">{stats.total}</p>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Audit Log Viewer</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">System activity and security logs</p>
             </div>
-            <FileText className="h-8 w-8 text-blue-600" />
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl border border-green-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-600 text-sm font-medium">Recent Activity</p>
-              <p className="text-2xl font-bold text-green-900">{stats.recentActivity}</p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  loadAuditLogs();
+                  loadAuditStats();
+                }}
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-3 py-2 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+              <button
+                onClick={onClose}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors duration-200"
+              >
+                Close
+              </button>
             </div>
-            <Activity className="h-8 w-8 text-green-600" />
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-purple-600 text-sm font-medium">Info</p>
-              <p className="text-2xl font-bold text-purple-900">{stats.bySeverity.info}</p>
+        {/* Stats Dashboard */}
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalLogs}</div>
+              <div className="text-sm text-blue-600 dark:text-blue-400">Total Logs</div>
             </div>
-            <Info className="h-8 w-8 text-purple-600" />
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.todayLogs}</div>
+              <div className="text-sm text-green-600 dark:text-green-400">Today</div>
+            </div>
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
+              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.thisWeekLogs}</div>
+              <div className="text-sm text-yellow-600 dark:text-yellow-400">This Week</div>
+            </div>
+            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.thisMonthLogs}</div>
+              <div className="text-sm text-purple-600 dark:text-purple-400">This Month</div>
+            </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-4 rounded-xl border border-yellow-200">
-          <div className="flex items-center justify-between">
+        {/* Filters */}
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div>
-              <p className="text-yellow-600 text-sm font-medium">Warnings</p>
-              <p className="text-2xl font-bold text-yellow-900">{stats.bySeverity.warning}</p>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Action</label>
+              <select
+                value={filters.action}
+                onChange={(e) => handleFilterChange('action', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="">All Actions</option>
+                <option value="login">Login</option>
+                <option value="logout">Logout</option>
+                <option value="create">Create</option>
+                <option value="update">Update</option>
+                <option value="delete">Delete</option>
+              </select>
             </div>
-            <AlertTriangle className="h-8 w-8 text-yellow-600" />
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-xl border border-orange-200">
-          <div className="flex items-center justify-between">
             <div>
-              <p className="text-orange-600 text-sm font-medium">Errors</p>
-              <p className="text-2xl font-bold text-orange-900">{stats.bySeverity.error}</p>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Resource Type</label>
+              <select
+                value={filters.resourceType}
+                onChange={(e) => handleFilterChange('resourceType', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="">All Resources</option>
+                <option value="user">User</option>
+                <option value="ticket">Ticket</option>
+                <option value="role">Role</option>
+                <option value="workflow">Workflow</option>
+              </select>
             </div>
-            <AlertCircle className="h-8 w-8 text-orange-600" />
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-xl border border-red-200">
-          <div className="flex items-center justify-between">
             <div>
-              <p className="text-red-600 text-sm font-medium">Critical</p>
-              <p className="text-2xl font-bold text-red-900">{stats.bySeverity.critical}</p>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Severity</label>
+              <select
+                value={filters.severity}
+                onChange={(e) => handleFilterChange('severity', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="">All Severities</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
             </div>
-            <AlertTriangle className="h-8 w-8 text-red-600" />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Email</label>
+              <input
+                type="text"
+                value={filters.userEmail}
+                onChange={(e) => handleFilterChange('userEmail', e.target.value)}
+                placeholder="Search by email..."
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
+              <input
+                type="date"
+                value={filters.startDate}
+                onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
+              <input
+                type="date"
+                value={filters.endDate}
+                onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
           </div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Filters</h3>
-          <button
-            onClick={clearFilters}
-            className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-          >
-            Clear All
-          </button>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Search
-            </label>
+          <div className="mt-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
                 value={filters.search}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
-                placeholder="Search logs..."
-                className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                placeholder="Search in details..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
             </div>
           </div>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Action
-            </label>
-            <select
-              value={filters.action}
-              onChange={(e) => handleFilterChange('action', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+        {/* Export Buttons */}
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleExport('csv')}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
             >
-              <option value="">All Actions</option>
-              <option value="user_login">User Login</option>
-              <option value="ticket_created">Ticket Created</option>
-              <option value="ticket_updated">Ticket Updated</option>
-              <option value="user_created">User Created</option>
-              <option value="system_backup">System Backup</option>
-              <option value="role_updated">Role Updated</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Severity
-            </label>
-            <select
-              value={filters.severity}
-              onChange={(e) => handleFilterChange('severity', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              <Download className="h-4 w-4" />
+              Export CSV
+            </button>
+            <button
+              onClick={() => handleExport('json')}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
             >
-              <option value="">All Severities</option>
-              <option value="info">Info</option>
-              <option value="warning">Warning</option>
-              <option value="error">Error</option>
-              <option value="critical">Critical</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              User Email
-            </label>
-            <input
-              type="text"
-              value={filters.userEmail}
-              onChange={(e) => handleFilterChange('userEmail', e.target.value)}
-              placeholder="Filter by user..."
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-            />
+              <Download className="h-4 w-4" />
+              Export JSON
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Audit Logs Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Audit Logs ({filteredLogs.length})
-            </h3>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleExport('json')}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-              >
-                <Download className="h-4 w-4" />
-                Export JSON
-              </button>
+        {/* Logs List */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-500 dark:text-gray-400">Loading audit logs...</p>
             </div>
-          </div>
+          ) : logs.length > 0 ? (
+            <div className="space-y-4">
+              {logs.map((log) => (
+                <div
+                  key={log.id}
+                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getSeverityColor(log.severity)}`}>
+                          {log.severity.toUpperCase()}
+                        </span>
+                        <span className="font-medium text-gray-900 dark:text-white">{log.action}</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">on</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{log.resource_type}</span>
+                        {log.resource_name && (
+                          <>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">:</span>
+                            <span className="font-medium text-gray-900 dark:text-white">{log.resource_name}</span>
+                          </>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        <span className="font-medium">{log.user_email}</span>
+                        <span className="mx-2">•</span>
+                        <span>{formatTimestamp(log.timestamp)}</span>
+                      </div>
+                      {expandedLogs.has(log.id) && (
+                        <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+                          <div className="text-sm text-gray-600 dark:text-gray-400">
+                            <div><strong>Details:</strong> {log.details}</div>
+                            <div><strong>IP Address:</strong> {log.ip_address}</div>
+                            <div><strong>User Agent:</strong> {log.user_agent}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => toggleLogExpansion(log.id)}
+                      className="ml-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      {expandedLogs.has(log.id) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500 dark:text-gray-400">No audit logs found</p>
+              <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">Try adjusting your filters</p>
+            </div>
+          )}
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-700">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Event
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  User
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Action
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Severity
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Time
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredLogs.map((log) => {
-                const severityInfo = getSeverityInfo(log.severity);
-                const SeverityIcon = severityInfo.icon;
-                
-                return (
-                  <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <div className={`p-2 rounded-lg ${severityInfo.bg} ${severityInfo.border}`}>
-                          <SeverityIcon className={`h-4 w-4 ${severityInfo.color}`} />
-                        </div>
-                        <div className="ml-3">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {log.details}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {log.resourceType}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <User className="h-4 w-4 text-gray-400 mr-2" />
-                        <span className="text-sm text-gray-900 dark:text-white">
-                          {log.userEmail}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                        {log.action.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${severityInfo.bg} ${severityInfo.color}`}>
-                        {log.severity}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 text-gray-400 mr-2" />
-                        <span className="text-sm text-gray-900 dark:text-white">
-                          {formatTimestamp(log.timestamp)}
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredLogs.length === 0 && (
-          <div className="text-center py-12">
-            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 dark:text-gray-400 font-medium">No audit logs found</p>
-            <p className="text-gray-500 dark:text-gray-500 text-sm mt-1">Try adjusting your filters</p>
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="p-6 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Page {currentPage} of {totalPages}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

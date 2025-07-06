@@ -16,7 +16,10 @@
     "test:ci": "jest --ci --coverage --watchAll=false",
     "test:server": "cd server && npm test",
     "test:all": "concurrently \"npm test\" \"npm run test:server\"",
-    "test:full": "npm run test:coverage && npm run test:server"
+    "test:full": "npm run test:coverage && npm run test:server",
+    "db:setup": "node server/scripts/setupPostgres.js",
+    "db:migrate": "node server/scripts/migrateFromSQLite.js",
+    "db:seed-tickets": "node server/scripts/seedTickets.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -35,8 +38,7 @@
     "recharts": "^2.12.7",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7",
+
     "ws": "^8.18.3"
   },
   "devDependencies": {

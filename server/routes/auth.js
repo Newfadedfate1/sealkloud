@@ -2,7 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
-import { getDatabase } from '../config/database.js';
+import { query } from '../config/database.js';
 import { createAuditLog } from './audit.js';
 
 const router = express.Router();
@@ -21,11 +21,12 @@ router.post('/login', [
     const { email, password } = req.body;
 
     // Find user by email
-    const user = await getDatabase().get(
-      'SELECT * FROM users WHERE email = ? AND is_active = 1',
+    const result = await query(
+      'SELECT * FROM users WHERE email = $1 AND is_active = true',
       [email]
     );
 
+    const user = result.rows[0];
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
@@ -37,8 +38,8 @@ router.post('/login', [
     }
 
     // Update last login
-    await getDatabase().run(
-      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?',
+    await query(
+      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
       [user.id]
     );
 
@@ -104,14 +105,21 @@ router.post('/register', [
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
     // Insert user
-    const result = await getDatabase().run(
+    const result = await query(
       `INSERT INTO users (email, password_hash, first_name, last_name, role, company_id)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
       [email, passwordHash, firstName, lastName, role, companyId]
     );
 
+    const userId = result.rows[0].id;
+
     // Get the inserted user
-    const user = await getDatabase().get('SELECT id, email, first_name, last_name, role, company_id, is_active, created_at FROM users WHERE id = ?', [result.lastID]);
+    const userResult = await query(
+      'SELECT id, email, first_name, last_name, role, company_id, is_active, created_at FROM users WHERE id = $1',
+      [userId]
+    );
+
+    const user = userResult.rows[0];
     res.status(201).json({
       user: {
         id: user.id,

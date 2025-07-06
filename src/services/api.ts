@@ -350,6 +350,21 @@ export const ticketsAPI = {
   addComment: async (id: string, comment: string) => {
     return api.post<any>(`/tickets/${id}/comments`, { comment });
   },
+
+  // New ticket assignment functions
+  claimTicket: async (ticketId: string) => {
+    return api.post<any>(`/tickets/${ticketId}/claim`);
+  },
+
+  getAvailableTickets: async (params?: { page?: number; limit?: number; search?: string }) => {
+    const queryString = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return api.get<any>(`/tickets/available/l1${queryString}`);
+  },
+
+  getMyTickets: async (params?: { page?: number; limit?: number; status?: string; search?: string }) => {
+    const queryString = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return api.get<any>(`/tickets/my-tickets${queryString}`);
+  },
 };
 
 export const usersAPI = {

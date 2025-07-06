@@ -18,7 +18,7 @@ import {
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { initializeDatabase } from './config/database.js';
-import { startChatServer } from './chatServer.js';
+// import { startChatServer } from './chatServer.js';
 
 dotenv.config();
 
@@ -118,8 +118,8 @@ const startServer = async () => {
     });
 
     // Start chat WebSocket server
-    startChatServer();
-    console.log('💬 Chat WebSocket server started');
+    // startChatServer();
+    // console.log('💬 Chat WebSocket server started');
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);

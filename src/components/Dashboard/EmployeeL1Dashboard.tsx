@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, Ticket, Clock, CheckCircle, AlertTriangle, Search, MessageSquare, User, ArrowRight, BarChart3, BookOpen, Brain, History } from 'lucide-react';
 import { User as UserType } from '../../types/user';
 import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
@@ -23,6 +23,10 @@ import { Phase2Demo } from '../Phase2Demo/Phase2Demo';
 // Phase 4 Components
 import { Phase4Demo } from '../Phase4Demo/Phase4Demo';
 import { Sidebar } from '../Sidebar/Sidebar';
+import { useToast } from '../Toast/ToastContainer';
+// Chat Components
+import { ChatInterface } from '../Chat/ChatInterface';
+import { NotificationManager } from '../Chat/ChatNotification';
 
 
 interface EmployeeL1DashboardProps {
@@ -32,7 +36,14 @@ interface EmployeeL1DashboardProps {
 
 export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, onLogout }) => {
   const { tickets, updateTicket, isUsingMockData, isLoading, refreshTickets } = useTickets();
+  const { addToast } = useToast();
+  
+  // Load settings on component mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
+  const [highlightedTicketId, setHighlightedTicketId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Phase 1 Enhancement States
@@ -53,19 +64,133 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   const [showPhase2Demo, setShowPhase2Demo] = useState(false);
   // Phase 4 State
   const [showPhase4Demo, setShowPhase4Demo] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
   
-  // Quick Wins Hooks
+  // Settings state
+  const [highContrast, setHighContrast] = useState(false);
+  const [fontSize, setFontSize] = useState('medium');
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [desktopNotifications, setDesktopNotifications] = useState(true);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  
+  // Chat States
+  const [showChat, setShowChat] = useState(false);
+  const [chatNotifications, setChatNotifications] = useState<Array<{
+    id: string;
+    senderName: string;
+    content: string;
+    timestamp: Date;
+  }>>([]);
+  
+  // Quick Wins Hooks - Using function keys and non-conflicting shortcuts
   const shortcutDefinitions = [
     { key: 'n', description: 'New ticket', action: () => console.log('New ticket'), category: 'ticket' as const },
     { key: 's', description: 'Search', action: () => console.log('Search'), category: 'navigation' as const },
     { key: 'e', description: 'Export', action: () => setShowExportModal(true), category: 'system' as const },
+    // Ticket Actions (using function keys to avoid browser conflicts)
+    { key: 'f1', description: 'Start Work', action: () => {
+      if (highlightedTicketId) {
+        const ticket = tickets.find(t => t.id === highlightedTicketId);
+        if (ticket && ticket.status === 'open') {
+          handleStartWork(highlightedTicketId);
+          showToast(`Started work on ticket ${highlightedTicketId}`, 'success');
+        } else {
+          showToast(`Cannot start work on ticket ${highlightedTicketId} - not in open status`, 'error');
+        }
+      } else {
+        showToast('No ticket selected. Click on a ticket first.', 'error');
+      }
+    }, category: 'ticket' as const },
+    { key: 'f2', description: 'Pause Work', action: () => {
+      if (highlightedTicketId) {
+        handleQuickAction('pause-work', { ticketId: highlightedTicketId });
+        showToast(`Paused work on ticket ${highlightedTicketId}`, 'info');
+      } else {
+        showToast('No ticket selected. Click on a ticket first.', 'error');
+      }
+    }, category: 'ticket' as const },
+    { key: 'f3', description: 'Resolve Ticket', action: () => {
+      if (highlightedTicketId) {
+        const ticket = tickets.find(t => t.id === highlightedTicketId);
+        if (ticket && ticket.status === 'in-progress') {
+          handleResolveTicket(highlightedTicketId);
+          showToast(`Resolved ticket ${highlightedTicketId}`, 'success');
+        } else {
+          showToast(`Cannot resolve ticket ${highlightedTicketId} - not in progress`, 'error');
+        }
+      } else {
+        showToast('No ticket selected. Click on a ticket first.', 'error');
+      }
+    }, category: 'ticket' as const },
+    { key: 'f4', description: 'Escalate Ticket', action: () => {
+      if (highlightedTicketId) {
+        handleQuickAction('escalate-ticket', { ticketId: highlightedTicketId });
+        showToast(`Escalated ticket ${highlightedTicketId} to Level 2`, 'success');
+      } else {
+        showToast('No ticket selected. Click on a ticket first.', 'error');
+      }
+    }, category: 'ticket' as const },
+    { key: 'f6', description: 'Delegate Ticket', action: () => {
+      if (highlightedTicketId) {
+        handleQuickAction('delegate-ticket', { ticketId: highlightedTicketId });
+        showToast(`Delegated ticket ${highlightedTicketId} to another L1 employee`, 'info');
+      } else {
+        showToast('No ticket selected. Click on a ticket first.', 'error');
+      }
+    }, category: 'ticket' as const },
+    // Communication Actions
+    { key: 'f7', description: 'Send Update', action: () => {
+      if (highlightedTicketId) {
+        handleQuickAction('send-update', { ticketId: highlightedTicketId });
+        showToast(`Update sent for ticket ${highlightedTicketId}`, 'success');
+      } else {
+        showToast('No ticket selected. Click on a ticket first.', 'error');
+      }
+    }, category: 'communication' as const },
+    { key: 'f8', description: 'Request Info', action: () => {
+      if (highlightedTicketId) {
+        handleQuickAction('request-info', { ticketId: highlightedTicketId });
+        showToast(`Information requested for ticket ${highlightedTicketId}`, 'info');
+      } else {
+        showToast('No ticket selected. Click on a ticket first.', 'error');
+      }
+    }, category: 'communication' as const },
+    { key: 'f9', description: 'Schedule Call', action: () => {
+      if (highlightedTicketId) {
+        handleQuickAction('schedule-call', { ticketId: highlightedTicketId });
+        showToast(`Call scheduled for ticket ${highlightedTicketId}`, 'success');
+      } else {
+        showToast('No ticket selected. Click on a ticket first.', 'error');
+      }
+    }, category: 'communication' as const },
+    // Tools Actions
+    { key: 'f5', description: 'Refresh Data', action: () => {
+      refreshTickets();
+    }, category: 'system' as const },
+    { key: 'f10', description: 'Advanced Filter', action: () => {
+      handleQuickAction('advanced-filter');
+    }, category: 'system' as const },
+    // View Ticket
+    { key: 'v', description: 'View Ticket', action: () => {
+      if (highlightedTicketId) {
+        const ticket = tickets.find(t => t.id === highlightedTicketId);
+        if (ticket) {
+          setSelectedTicket(ticket);
+        }
+      }
+    }, category: 'ticket' as const },
   ];
   const { isShortcutsOpen, toggleShortcuts, shortcuts } = useKeyboardShortcuts(shortcutDefinitions);
   
   // Filter tickets for L1 - basic tickets and unassigned
   const myTickets = tickets.filter(ticket => ticket.assignedTo === user.id);
   const availableTickets = tickets.filter(ticket => 
-    ticket.status === 'unassigned' && ['low', 'medium'].includes(ticket.problemLevel)
+    (ticket.status === 'open' || ticket.status === 'unassigned') && 
+    !ticket.assignedTo && 
+    ['low', 'medium'].includes(ticket.priority || ticket.problemLevel)
   );
   
   const userStats = {
@@ -110,23 +235,338 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
     });
   };
 
-  // Phase 1 Enhancement Handlers
+  // Enhanced Quick Action Handlers
   const handleQuickAction = (action: string, data?: any) => {
     console.log('Quick action:', action, data);
-    // Handle different quick actions
+    const ticketId = data?.ticketId || highlightedTicketId;
+    
+    if (!ticketId) {
+      console.log('No ticket selected for action:', action);
+      return;
+    }
+
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket) {
+      console.log('Ticket not found:', ticketId);
+      return;
+    }
+
     switch (action) {
       case 'start-work':
-        // Handle start work action
+        handleStartWork(ticketId);
+        break;
+      case 'pause-work':
+        handleTicketUpdate(ticketId, {
+          status: 'paused',
+          lastUpdated: new Date(),
+          activityLog: [
+            ...ticket.activityLog,
+            {
+              id: `activity-${Date.now()}`,
+              ticketId: ticketId,
+              userId: user.id,
+              userName: `${user.firstName} ${user.lastName}`,
+              action: 'pause-work',
+              description: `Work paused by ${user.firstName} ${user.lastName}`,
+              timestamp: new Date()
+            }
+          ]
+        });
         break;
       case 'resolve-ticket':
-        // Handle resolve ticket action
+        handleResolveTicket(ticketId);
         break;
       case 'escalate-ticket':
-        // Handle escalate ticket action
+        handleEscalateTicket(ticketId);
+        break;
+      case 'delegate-ticket':
+        handleDelegateTicket(ticketId);
+        break;
+      case 'send-update':
+        handleSendUpdate(ticketId);
+        break;
+      case 'request-info':
+        handleRequestInfo(ticketId);
+        break;
+      case 'schedule-call':
+        handleScheduleCall(ticketId);
+        break;
+      case 'advanced-filter':
+        // This could open a filter modal
+        console.log('Advanced filter requested');
         break;
       default:
         console.log('Unknown action:', action);
     }
+  };
+
+  // Specific action handlers
+  const handleEscalateTicket = (ticketId: string) => {
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket) return;
+
+    // Find Level 2 employees
+    const level2Employees = availableUsers.filter(u => u.role === 'employee_l2');
+    
+    if (level2Employees.length === 0) {
+      console.log('No Level 2 employees available');
+      return;
+    }
+
+    // Escalate to all Level 2 employees (round-robin or first available)
+    const assignedEmployee = level2Employees[0]; // Could implement round-robin logic
+    
+    handleTicketUpdate(ticketId, {
+      status: 'escalated',
+      assignedTo: assignedEmployee.id,
+      assignedToName: `${assignedEmployee.firstName} ${assignedEmployee.lastName}`,
+      priority: 'high', // Escalated tickets become high priority
+      lastUpdated: new Date(),
+      activityLog: [
+        ...ticket.activityLog,
+        {
+          id: `activity-${Date.now()}`,
+          ticketId: ticketId,
+          userId: user.id,
+          userName: `${user.firstName} ${user.lastName}`,
+          action: 'escalate-ticket',
+          description: `ESCALATED to Level 2 by ${user.firstName} ${user.lastName}. Assigned to: ${assignedEmployee.firstName} ${assignedEmployee.lastName}`,
+          timestamp: new Date()
+        }
+      ]
+    });
+
+    console.log(`Ticket ${ticketId} escalated to Level 2 employee: ${assignedEmployee.firstName} ${assignedEmployee.lastName}`);
+  };
+
+  const handleDelegateTicket = (ticketId: string) => {
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket) return;
+
+    // Find available Level 1 employees (excluding current user)
+    const availableL1Employees = availableUsers.filter(u => 
+      u.role === 'employee_l1' && u.id !== user.id
+    );
+    
+    if (availableL1Employees.length === 0) {
+      console.log('No other Level 1 employees available');
+      return;
+    }
+
+    // Delegate to first available L1 employee
+    const delegatedEmployee = availableL1Employees[0];
+    
+    handleTicketUpdate(ticketId, {
+      assignedTo: delegatedEmployee.id,
+      assignedToName: `${delegatedEmployee.firstName} ${delegatedEmployee.lastName}`,
+      lastUpdated: new Date(),
+      activityLog: [
+        ...ticket.activityLog,
+        {
+          id: `activity-${Date.now()}`,
+          ticketId: ticketId,
+          userId: user.id,
+          userName: `${user.firstName} ${user.lastName}`,
+          action: 'delegate-ticket',
+          description: `DELEGATED to ${delegatedEmployee.firstName} ${delegatedEmployee.lastName} by ${user.firstName} ${user.lastName}`,
+          timestamp: new Date()
+        }
+      ]
+    });
+
+    console.log(`Ticket ${ticketId} delegated to: ${delegatedEmployee.firstName} ${delegatedEmployee.lastName}`);
+  };
+
+  const handleSendUpdate = (ticketId: string) => {
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket) return;
+
+    const updateMessage = `Update sent via keyboard shortcut by ${user.firstName} ${user.lastName}`;
+    
+    handleTicketUpdate(ticketId, {
+      lastUpdated: new Date(),
+      activityLog: [
+        ...ticket.activityLog,
+        {
+          id: `activity-${Date.now()}`,
+          ticketId: ticketId,
+          userId: user.id,
+          userName: `${user.firstName} ${user.lastName}`,
+          action: 'send-update',
+          description: `UPDATE SENT: ${updateMessage}`,
+          timestamp: new Date()
+        }
+      ]
+    });
+
+    console.log(`Update sent for ticket ${ticketId}: ${updateMessage}`);
+  };
+
+  const handleRequestInfo = (ticketId: string) => {
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket) return;
+
+    const infoRequest = `Information requested via keyboard shortcut by ${user.firstName} ${user.lastName}`;
+    
+    handleTicketUpdate(ticketId, {
+      status: 'waiting-for-info',
+      lastUpdated: new Date(),
+      activityLog: [
+        ...ticket.activityLog,
+        {
+          id: `activity-${Date.now()}`,
+          ticketId: ticketId,
+          userId: user.id,
+          userName: `${user.firstName} ${user.lastName}`,
+          action: 'request-info',
+          description: `INFO REQUESTED: ${infoRequest}`,
+          timestamp: new Date()
+        }
+      ]
+    });
+
+    console.log(`Information requested for ticket ${ticketId}: ${infoRequest}`);
+  };
+
+  const handleScheduleCall = (ticketId: string) => {
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket) return;
+
+    // Schedule call for tomorrow at 10 AM (example)
+    const callDate = new Date();
+    callDate.setDate(callDate.getDate() + 1);
+    callDate.setHours(10, 0, 0, 0);
+
+    const callMessage = `Call scheduled for ${callDate.toLocaleDateString()} at ${callDate.toLocaleTimeString()} by ${user.firstName} ${user.lastName}`;
+    
+    handleTicketUpdate(ticketId, {
+      lastUpdated: new Date(),
+      activityLog: [
+        ...ticket.activityLog,
+        {
+          id: `activity-${Date.now()}`,
+          ticketId: ticketId,
+          userId: user.id,
+          userName: `${user.firstName} ${user.lastName}`,
+          action: 'schedule-call',
+          description: `CALL SCHEDULED: ${callMessage}`,
+          timestamp: new Date()
+        }
+      ]
+    });
+
+    console.log(`Call scheduled for ticket ${ticketId}: ${callMessage}`);
+  };
+
+  // Toast notification helper
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    addToast({
+      type: type as 'success' | 'error' | 'info',
+      title: type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info',
+      message: message,
+      duration: 3000
+    });
+  };
+
+  const handleSaveSettings = () => {
+    // Save settings to localStorage
+    const settings = {
+      highContrast,
+      fontSize,
+      reducedMotion,
+      emailNotifications,
+      desktopNotifications,
+      theme
+    };
+    
+    localStorage.setItem('sealkloud-settings', JSON.stringify(settings));
+    
+    // Apply settings immediately
+    applySettings(settings);
+    
+    addToast({
+      type: 'success',
+      title: 'Settings Saved',
+      message: 'Your settings have been saved successfully!',
+      duration: 3000
+    });
+    setShowSettings(false);
+  };
+
+  const applySettings = (settings: any) => {
+    // Apply high contrast
+    if (settings.highContrast) {
+      document.documentElement.classList.add('high-contrast');
+    } else {
+      document.documentElement.classList.remove('high-contrast');
+    }
+
+    // Apply font size
+    const fontSizeMap = {
+      'small': '0.875rem',
+      'medium': '1rem',
+      'large': '1.125rem',
+      'extra-large': '1.25rem'
+    };
+    document.documentElement.style.fontSize = fontSizeMap[settings.fontSize as keyof typeof fontSizeMap] || '1rem';
+
+    // Apply reduced motion
+    if (settings.reducedMotion) {
+      document.documentElement.style.setProperty('--motion-reduce', '1');
+    } else {
+      document.documentElement.style.removeProperty('--motion-reduce');
+    }
+
+    // Apply theme
+    if (settings.theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
+
+  const loadSettings = () => {
+    const savedSettings = localStorage.getItem('sealkloud-settings');
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings);
+      setHighContrast(settings.highContrast || false);
+      setFontSize(settings.fontSize || 'medium');
+      setReducedMotion(settings.reducedMotion || false);
+      setEmailNotifications(settings.emailNotifications !== false);
+      setDesktopNotifications(settings.desktopNotifications !== false);
+      setTheme(settings.theme || 'light');
+      
+      // Apply loaded settings
+      applySettings(settings);
+    }
+  };
+
+  const resetToDefaults = () => {
+    setHighContrast(false);
+    setFontSize('medium');
+    setReducedMotion(false);
+    setEmailNotifications(true);
+    setDesktopNotifications(true);
+    setTheme('light');
+    
+    // Apply default settings
+    const defaultSettings = {
+      highContrast: false,
+      fontSize: 'medium',
+      reducedMotion: false,
+      emailNotifications: true,
+      desktopNotifications: true,
+      theme: 'light'
+    };
+    
+    applySettings(defaultSettings);
+    
+    addToast({
+      type: 'info',
+      title: 'Settings Reset',
+      message: 'Settings have been reset to defaults',
+      duration: 3000
+    });
   };
 
   const handleApplySolution = (solution: string) => {
@@ -167,6 +607,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   );
 
   const [activeSection, setActiveSection] = useState('dashboard');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Navigation handler for sidebar
   const handleSidebarNavigate = (section: string) => {
@@ -189,7 +630,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
         setShowQuickActions(true);
         break;
       case 'messages':
-        setShowCommunicationTools(true);
+        setShowChat(true);
         break;
       case 'automation':
         setShowWorkflowAutomation(true);
@@ -198,6 +639,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
         setShowPhase2Demo(true);
         break;
       case 'settings':
+        setShowSettings(true);
         break;
       default:
         break;
@@ -210,8 +652,10 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
         active={activeSection}
         onNavigate={handleSidebarNavigate}
         onLogout={onLogout}
+        collapsed={sidebarCollapsed}
+        onCollapse={setSidebarCollapsed}
       />
-      <div className="flex-1 ml-16 md:ml-56 transition-all duration-300">
+      <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-56'}`}>
         <DataSourceIndicator 
           isUsingMockData={isUsingMockData}
           isLoading={isLoading}
@@ -259,6 +703,54 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
             <TestStatusIndicator />
           </div>
 
+          {/* Highlighted Ticket Indicator */}
+          {highlightedTicketId && (
+            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Ticket {highlightedTicketId} selected
+                  </span>
+                  <span className="text-xs text-blue-700 dark:text-blue-300">
+                    Use F1=Start, F3=Resolve, F4=Escalate, V=View (when shortcuts panel is open)
+                  </span>
+                </div>
+                <button
+                  onClick={() => setHighlightedTicketId(null)}
+                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 text-sm"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Shortcuts Status Indicator */}
+          <div className="mb-6 p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-2 h-2 rounded-full ${isShortcutsOpen ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Keyboard shortcuts: {isShortcutsOpen ? 'Active' : 'Inactive'}
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {isShortcutsOpen ? 'Press function keys (F1-F10) to use shortcuts' : 'Open shortcuts panel to enable'}
+                </span>
+              </div>
+              <button
+                onClick={toggleShortcuts}
+                className={`px-3 py-1 text-xs font-medium rounded border transition-colors ${
+                  isShortcutsOpen 
+                    ? 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/20 dark:text-green-400 dark:border-green-700' 
+                    : 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600'
+                }`}
+              >
+                {isShortcutsOpen ? 'Active' : 'Enable'}
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Available Tickets - Left Column */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
@@ -270,24 +762,35 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                 {availableTickets.length > 0 ? (
                   <div className="space-y-4">
                     {availableTickets.slice(0, 5).map(ticket => (
-                      <div key={ticket.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
+                      <div 
+                        key={ticket.id} 
+                        className={`border rounded-lg p-4 transition-all duration-200 cursor-pointer ${
+                          highlightedTicketId === ticket.id 
+                            ? 'border-blue-300 bg-blue-50 dark:bg-blue-900/20 shadow-md' 
+                            : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                        onClick={() => setHighlightedTicketId(highlightedTicketId === ticket.id ? null : ticket.id)}
+                      >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
                               <span className="font-mono text-sm font-medium text-gray-900 dark:text-white">{ticket.id}</span>
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(ticket.problemLevel)}`}>
-                                {ticket.problemLevel.charAt(0).toUpperCase() + ticket.problemLevel.slice(1)}
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(ticket.priority || ticket.problemLevel)}`}>
+                                {(ticket.priority || ticket.problemLevel).charAt(0).toUpperCase() + (ticket.priority || ticket.problemLevel).slice(1)}
                               </span>
                             </div>
                             <h3 className="font-medium text-gray-900 dark:text-white mb-1">{ticket.title}</h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{ticket.clientName}</p>
                             <p className="text-sm text-gray-500 line-clamp-2">{ticket.description}</p>
                             <div className="text-xs text-gray-400 dark:text-gray-400 mt-2">
-                              Created {ticket.submittedDate.toLocaleDateString()}
+                              Created {new Date(ticket.submittedDate).toLocaleDateString()}
                             </div>
                           </div>
                           <button
-                            onClick={() => handleTakeTicket(ticket.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTakeTicket(ticket.id);
+                            }}
                             className="ml-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
                           >
                             Take
@@ -330,7 +833,15 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                 {filteredMyTickets.length > 0 ? (
                   <div className="space-y-4">
                     {filteredMyTickets.map(ticket => (
-                      <div key={ticket.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                      <div 
+                        key={ticket.id} 
+                        className={`border rounded-lg p-4 transition-all duration-200 cursor-pointer ${
+                          highlightedTicketId === ticket.id 
+                            ? 'border-blue-300 bg-blue-50 dark:bg-blue-900/20 shadow-md' 
+                            : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                        onClick={() => setHighlightedTicketId(highlightedTicketId === ticket.id ? null : ticket.id)}
+                      >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
@@ -338,26 +849,32 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                               <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(ticket.status)}`}>
                                 {ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1).replace('-', ' ')}
                               </span>
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(ticket.problemLevel)}`}>
-                                {ticket.problemLevel.charAt(0).toUpperCase() + ticket.problemLevel.slice(1)}
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(ticket.priority || ticket.problemLevel)}`}>
+                                {(ticket.priority || ticket.problemLevel).charAt(0).toUpperCase() + (ticket.priority || ticket.problemLevel).slice(1)}
                               </span>
                             </div>
                             <h3 className="font-medium text-gray-900 dark:text-white mb-1">{ticket.title}</h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{ticket.clientName}</p>
                             <div className="text-xs text-gray-400 dark:text-gray-400">
-                              Updated {ticket.lastUpdated.toLocaleDateString()}
+                              Updated {new Date(ticket.lastUpdated).toLocaleDateString()}
                             </div>
                           </div>
                           <div className="ml-4 flex flex-col gap-2">
                             <button
-                              onClick={() => setSelectedTicket(ticket)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTicket(ticket);
+                              }}
                               className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
                             >
                               View
                             </button>
                             {ticket.status === 'open' && (
                               <button
-                                onClick={() => handleStartWork(ticket.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStartWork(ticket.id);
+                                }}
                                 className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
                               >
                                 Start
@@ -365,7 +882,10 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                             )}
                             {ticket.status === 'in-progress' && (
                               <button
-                                onClick={() => handleResolveTicket(ticket.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleResolveTicket(ticket.id);
+                                }}
                                 className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
                               >
                                 Resolve
@@ -555,6 +1075,46 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
           shortcuts={shortcuts}
         />
 
+        {/* Toast Notification */}
+        {toastMessage && (
+          <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm transition-all duration-300 ${
+            toastType === 'success' 
+              ? 'bg-green-500 text-white' 
+              : toastType === 'error' 
+                ? 'bg-red-500 text-white' 
+                : 'bg-blue-500 text-white'
+          }`}>
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <p className="text-sm font-medium">{toastMessage}</p>
+              </div>
+              <button
+                onClick={() => setToastMessage(null)}
+                className="text-white hover:text-gray-200"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Chat Interface */}
+        <ChatInterface
+          currentUser={user}
+          isOpen={showChat}
+          onClose={() => setShowChat(false)}
+          setChatNotifications={setChatNotifications}
+        />
+
+        {/* Chat Notifications */}
+        <NotificationManager
+          notifications={chatNotifications}
+          onRemoveNotification={(id) => {
+            setChatNotifications(prev => prev.filter(n => n.id !== id));
+          }}
+          onOpenChat={() => setShowChat(true)}
+        />
+
         <ExportModal
           isOpen={showExportModal}
           onClose={() => setShowExportModal(false)}
@@ -605,6 +1165,286 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
               </div>
               <div className="p-6">
                 <Phase2Demo onBack={() => setShowPhase2Demo(false)} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Settings Modal */}
+        {showSettings && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Settings</h2>
+                  <button
+                    onClick={() => setShowSettings(false)}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="space-y-8">
+                  {/* Accessibility Settings */}
+                  <div>
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
+                        <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Accessibility Settings</h3>
+                    </div>
+                    <div className="space-y-4">
+                      {/* High Contrast Toggle */}
+                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
+                            <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-gray-900 dark:text-white">High Contrast Mode</span>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Increase contrast for better visibility</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => {
+                            const newValue = !highContrast;
+                            setHighContrast(newValue);
+                            // Apply immediately
+                            if (newValue) {
+                              document.documentElement.classList.add('high-contrast');
+                            } else {
+                              document.documentElement.classList.remove('high-contrast');
+                            }
+                          }}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                            highContrast ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                              highContrast ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Font Size Selector */}
+                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-800">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-green-100 dark:bg-green-900/30 p-2 rounded-lg">
+                            <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-gray-900 dark:text-white">Font Size</span>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Adjust text size for better readability</p>
+                          </div>
+                        </div>
+                        <select 
+                          value={fontSize}
+                          onChange={(e) => {
+                            const newSize = e.target.value;
+                            setFontSize(newSize);
+                            // Apply immediately
+                            const fontSizeMap = {
+                              'small': '0.875rem',
+                              'medium': '1rem',
+                              'large': '1.125rem',
+                              'extra-large': '1.25rem'
+                            };
+                            document.documentElement.style.fontSize = fontSizeMap[newSize as keyof typeof fontSizeMap] || '1rem';
+                          }}
+                          className="px-4 py-2 border border-green-300 dark:border-green-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        >
+                          <option value="small">Small</option>
+                          <option value="medium">Medium</option>
+                          <option value="large">Large</option>
+                          <option value="extra-large">Extra Large</option>
+                        </select>
+                      </div>
+
+                      {/* Reduced Motion Toggle */}
+                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg">
+                            <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-gray-900 dark:text-white">Reduced Motion</span>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Reduce animations and transitions</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => {
+                            const newValue = !reducedMotion;
+                            setReducedMotion(newValue);
+                            // Apply immediately
+                            if (newValue) {
+                              document.documentElement.style.setProperty('--motion-reduce', '1');
+                            } else {
+                              document.documentElement.style.removeProperty('--motion-reduce');
+                            }
+                          }}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                            reducedMotion ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                              reducedMotion ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Notification Settings */}
+                  <div>
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="bg-orange-100 dark:bg-orange-900/30 p-2 rounded-lg">
+                        <svg className="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4.19 4.19A2 2 0 006 3h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Notification Settings</h3>
+                    </div>
+                    <div className="space-y-4">
+                      {/* Email Notifications */}
+                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl border border-orange-200 dark:border-orange-800">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-orange-100 dark:bg-orange-900/30 p-2 rounded-lg">
+                            <svg className="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-gray-900 dark:text-white">Email Notifications</span>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Receive updates via email</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => setEmailNotifications(!emailNotifications)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                            emailNotifications ? 'bg-orange-600' : 'bg-gray-300 dark:bg-gray-600'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                              emailNotifications ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Desktop Notifications */}
+                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 rounded-xl border border-teal-200 dark:border-teal-800">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-teal-100 dark:bg-teal-900/30 p-2 rounded-lg">
+                            <svg className="w-5 h-5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-gray-900 dark:text-white">Desktop Notifications</span>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Show notifications on desktop</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => setDesktopNotifications(!desktopNotifications)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                            desktopNotifications ? 'bg-teal-600' : 'bg-gray-300 dark:bg-gray-600'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                              desktopNotifications ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Theme Settings */}
+                  <div>
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-lg">
+                        <svg className="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Theme Settings</h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <button 
+                        onClick={() => {
+                          setTheme('light');
+                          // Apply immediately
+                          document.documentElement.classList.remove('dark');
+                        }}
+                        className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                          theme === 'light' 
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-4 h-4 bg-yellow-400 rounded-full"></div>
+                          <span className="font-medium text-gray-900 dark:text-white">Light Mode</span>
+                        </div>
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setTheme('dark');
+                          // Apply immediately
+                          document.documentElement.classList.add('dark');
+                        }}
+                        className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                          theme === 'dark' 
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-4 h-4 bg-gray-800 rounded-full"></div>
+                          <span className="font-medium text-gray-900 dark:text-white">Dark Mode</span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={resetToDefaults}
+                      className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 py-3 px-6 rounded-xl font-medium transition-all duration-200 hover:shadow-md"
+                    >
+                      Reset to Defaults
+                    </button>
+                    <button
+                      onClick={() => setShowSettings(false)}
+                      className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 py-3 px-6 rounded-xl font-medium transition-all duration-200 hover:shadow-md"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveSettings}
+                      className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3 px-6 rounded-xl font-medium transition-all duration-200 hover:shadow-lg transform hover:scale-105"
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

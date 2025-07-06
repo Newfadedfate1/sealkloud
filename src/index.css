@@ -42,3 +42,61 @@
     @apply bg-gray-400 dark:bg-gray-500;
   }
 }
+
+/* High Contrast Mode */
+.high-contrast {
+  --tw-bg-opacity: 1;
+  background-color: rgb(0 0 0 / var(--tw-bg-opacity)) !important;
+  color: rgb(255 255 255 / var(--tw-text-opacity)) !important;
+}
+
+.high-contrast * {
+  border-color: rgb(255 255 255 / var(--tw-border-opacity)) !important;
+}
+
+.high-contrast .bg-white {
+  background-color: rgb(0 0 0 / var(--tw-bg-opacity)) !important;
+  color: rgb(255 255 255 / var(--tw-text-opacity)) !important;
+}
+
+.high-contrast .bg-gray-50,
+.high-contrast .bg-gray-100,
+.high-contrast .bg-gray-200 {
+  background-color: rgb(0 0 0 / var(--tw-bg-opacity)) !important;
+  color: rgb(255 255 255 / var(--tw-text-opacity)) !important;
+}
+
+.high-contrast .text-gray-900,
+.high-contrast .text-gray-800,
+.high-contrast .text-gray-700 {
+  color: rgb(255 255 255 / var(--tw-text-opacity)) !important;
+}
+
+.high-contrast .text-gray-600,
+.high-contrast .text-gray-500,
+.high-contrast .text-gray-400 {
+  color: rgb(200 200 200 / var(--tw-text-opacity)) !important;
+}
+
+/* Reduced Motion */
+[style*="--motion-reduce: 1"] *,
+[style*="--motion-reduce: 1"] *::before,
+[style*="--motion-reduce: 1"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Font Size Adjustments */
+html[style*="font-size: 0.875rem"] {
+  font-size: 0.875rem;
+}
+
+html[style*="font-size: 1.125rem"] {
+  font-size: 1.125rem;
+}
+
+html[style*="font-size: 1.25rem"] {
+  font-size: 1.25rem;
+}

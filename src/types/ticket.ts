@@ -8,6 +8,7 @@ export interface Ticket {
   title: string;
   description: string;
   problemLevel: ProblemLevel;
+  priority: ProblemLevel; // New field for consistency
   status: TicketStatus;
   assignedTo?: string;
   assignedToName?: string;

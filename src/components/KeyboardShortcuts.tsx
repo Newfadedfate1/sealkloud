@@ -26,6 +26,9 @@ export const KeyboardShortcuts: React.FC<KeyboardShortcutsProps> = ({
     if (!isOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't interfere with common browser shortcuts when shortcuts panel is not open
+      if (!isOpen) return;
+      
       const key = event.key.toLowerCase();
       const modifiers = [];
       
@@ -38,6 +41,7 @@ export const KeyboardShortcuts: React.FC<KeyboardShortcutsProps> = ({
       
       // Find and execute matching shortcut
       const matchingShortcut = shortcuts.find(shortcut => {
+        // Handle both explicit modifier format (alt+s) and implicit format
         const shortcutKeyCombo = [
           shortcut.modifier === 'ctrl' ? 'ctrl' : '',
           shortcut.modifier === 'shift' ? 'shift' : '',
@@ -45,11 +49,18 @@ export const KeyboardShortcuts: React.FC<KeyboardShortcutsProps> = ({
           shortcut.key.toLowerCase()
         ].filter(Boolean).join('+');
         
-        return shortcutKeyCombo === shortcutKey;
+        // Also check if the shortcut key itself contains the modifier (e.g., 'alt+s')
+        const directMatch = shortcut.key.toLowerCase() === shortcutKey;
+        
+        // Handle function keys (F1, F2, etc.)
+        const functionKeyMatch = shortcut.key.toLowerCase() === key;
+        
+        return shortcutKeyCombo === shortcutKey || directMatch || functionKeyMatch;
       });
       
       if (matchingShortcut) {
         event.preventDefault();
+        event.stopPropagation();
         matchingShortcut.action();
       }
     };
@@ -107,6 +118,20 @@ export const KeyboardShortcuts: React.FC<KeyboardShortcutsProps> = ({
     }
   };
 
+  const formatShortcutKey = (shortcut: Shortcut) => {
+    // Handle shortcuts that already include the modifier in the key (e.g., 'alt+s')
+    if (shortcut.key.includes('+')) {
+      const parts = shortcut.key.split('+');
+      return parts.map(part => part.toUpperCase()).join(' + ');
+    }
+    
+    // Handle shortcuts with explicit modifier property
+    const modifierText = shortcut.modifier ? getModifierText(shortcut.modifier) : '';
+    const keyText = shortcut.key.toUpperCase();
+    
+    return [modifierText, keyText].filter(Boolean).join(' + ');
+  };
+
   const categories = [
     { id: 'navigation', label: 'Navigation', icon: '🏠' },
     { id: 'ticket', label: 'Ticket Actions', icon: '🎫' },
@@ -156,15 +181,23 @@ export const KeyboardShortcuts: React.FC<KeyboardShortcutsProps> = ({
                   
                   <div className="space-y-3">
                     {categoryShortcuts.map((shortcut, index) => {
-                      const shortcutKey = [
-                        shortcut.modifier ? getModifierText(shortcut.modifier) : '',
-                        shortcut.key.toUpperCase()
-                      ].filter(Boolean).join(' + ');
+                      const shortcutKey = formatShortcutKey(shortcut);
                       
-                      const isActive = activeShortcuts.has([
-                        shortcut.modifier || '',
-                        shortcut.key.toLowerCase()
-                      ].filter(Boolean).join('+'));
+                      // Determine if shortcut is active
+                      let isActive = false;
+                      if (shortcut.key.includes('+')) {
+                        // For shortcuts like 'alt+s'
+                        isActive = activeShortcuts.has(shortcut.key.toLowerCase());
+                      } else if (shortcut.key.startsWith('f') && shortcut.key.length <= 3) {
+                        // For function keys (F1, F2, etc.)
+                        isActive = activeShortcuts.has(shortcut.key.toLowerCase());
+                      } else {
+                        // For shortcuts with explicit modifier
+                        isActive = activeShortcuts.has([
+                          shortcut.modifier || '',
+                          shortcut.key.toLowerCase()
+                        ].filter(Boolean).join('+'));
+                      }
 
                       return (
                         <div
@@ -198,8 +231,9 @@ export const KeyboardShortcuts: React.FC<KeyboardShortcutsProps> = ({
           <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
             <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">💡 Tips</h4>
             <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+              <li>• Use function keys (F1-F10) to avoid conflicts with browser shortcuts</li>
+              <li>• Shortcuts only work when this panel is open to prevent interference</li>
               <li>• Use these shortcuts to navigate faster and be more productive</li>
-              <li>• Shortcuts work globally when the helpdesk is focused</li>
               <li>• You can customize shortcuts in your settings</li>
             </ul>
           </div>
@@ -214,6 +248,55 @@ export const useKeyboardShortcuts = (shortcuts: Shortcut[]) => {
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
 
   const toggleShortcuts = () => setIsShortcutsOpen(!isShortcutsOpen);
+
+  // Add global keyboard event listener for shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (event: KeyboardEvent) => {
+      // Only activate shortcuts when the shortcuts panel is open
+      if (!isShortcutsOpen) return;
+      
+      // Don't interfere with common browser shortcuts
+      const key = event.key.toLowerCase();
+      const modifiers = [];
+      
+      if (event.ctrlKey || event.metaKey) modifiers.push('ctrl');
+      if (event.shiftKey) modifiers.push('shift');
+      if (event.altKey) modifiers.push('alt');
+      
+      const shortcutKey = [...modifiers, key].join('+');
+      
+      // Find and execute matching shortcut
+      const matchingShortcut = shortcuts.find(shortcut => {
+        // Handle both explicit modifier format (alt+s) and implicit format
+        const shortcutKeyCombo = [
+          shortcut.modifier === 'ctrl' ? 'ctrl' : '',
+          shortcut.modifier === 'shift' ? 'shift' : '',
+          shortcut.modifier === 'alt' ? 'alt' : '',
+          shortcut.key.toLowerCase()
+        ].filter(Boolean).join('+');
+        
+        // Also check if the shortcut key itself contains the modifier (e.g., 'alt+s')
+        const directMatch = shortcut.key.toLowerCase() === shortcutKey;
+        
+        // Handle function keys (F1, F2, etc.)
+        const functionKeyMatch = shortcut.key.toLowerCase() === key;
+        
+        return shortcutKeyCombo === shortcutKey || directMatch || functionKeyMatch;
+      });
+      
+      if (matchingShortcut) {
+        event.preventDefault();
+        event.stopPropagation();
+        matchingShortcut.action();
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, [isShortcutsOpen, shortcuts]);
 
   return {
     isShortcutsOpen,

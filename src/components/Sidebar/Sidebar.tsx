@@ -8,30 +8,38 @@ import {
   LogOut,
   Users,
   MessageSquare,
-  Zap,
-  Shield
+  Command
 } from 'lucide-react';
 
 interface SidebarProps {
   active: string;
   onNavigate: (route: string) => void;
   onLogout: () => void;
+  collapsed?: boolean;
+  onCollapse?: (collapsed: boolean) => void;
 }
 
 const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: <Home className="w-5 h-5" /> },
-  { id: 'tickets', label: 'Tickets', icon: <Ticket className="w-5 h-5" /> },
+  // { id: 'dashboard', label: 'Dashboard', icon: <Home className="w-5 h-5" /> },
+  // { id: 'tickets', label: 'Tickets', icon: <Ticket className="w-5 h-5" /> },
   { id: 'knowledge', label: 'Knowledge', icon: <BookOpen className="w-5 h-5" /> },
   { id: 'analytics', label: 'Analytics', icon: <BarChart3 className="w-5 h-5" /> },
-  { id: 'team', label: 'Team', icon: <Users className="w-5 h-5" /> },
+  { id: 'team', label: 'Quick Actions', icon: <Command className="w-5 h-5" /> },
   { id: 'messages', label: 'Messages', icon: <MessageSquare className="w-5 h-5" /> },
-  { id: 'automation', label: 'Automation', icon: <Zap className="w-5 h-5" /> },
-  { id: 'security', label: 'Security', icon: <Shield className="w-5 h-5" /> },
   { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ active, onNavigate, onLogout }) => {
-  const [collapsed, setCollapsed] = useState(false);
+export const Sidebar: React.FC<SidebarProps> = ({ active, onNavigate, onLogout, collapsed: collapsedProp, onCollapse }) => {
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const collapsed = collapsedProp !== undefined ? collapsedProp : internalCollapsed;
+
+  const handleCollapse = () => {
+    if (onCollapse) {
+      onCollapse(!collapsed);
+    } else {
+      setInternalCollapsed((c) => !c);
+    }
+  };
 
   return (
     <aside
@@ -46,7 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ active, onNavigate, onLogout }
           {!collapsed && <span className="font-bold text-lg text-gray-900 dark:text-white">SealKloud</span>}
         </div>
         <button
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={handleCollapse}
           className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >

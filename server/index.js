@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { authRoutes } from './routes/auth.js';
 import { ticketRoutes } from './routes/tickets.js';
@@ -9,9 +8,17 @@ import { userRoutes } from './routes/users.js';
 import { dashboardRoutes } from './routes/dashboard.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { authenticateToken } from './middleware/auth.js';
+import { 
+  generalLimiter, 
+  authLimiter, 
+  ticketCreateLimiter, 
+  searchLimiter,
+  maintenanceMode 
+} from './middleware/rateLimiter.js';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { initializeDatabase } from './config/database.js';
+import { startChatServer } from './chatServer.js';
 
 dotenv.config();
 
@@ -25,6 +32,9 @@ const io = new SocketIOServer(server, {
   }
 });
 
+// Maintenance mode check
+app.use(maintenanceMode);
+
 // Security middleware
 app.use(helmet());
 app.use(cors({
@@ -32,13 +42,8 @@ app.use(cors({
   credentials: true
 }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
-});
-app.use(limiter);
+// General rate limiting
+app.use(generalLimiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -53,8 +58,8 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// API routes
-app.use('/api/auth', authRoutes);
+// API routes with specific rate limiting
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/tickets', authenticateToken, ticketRoutes);
 app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
@@ -111,6 +116,10 @@ const startServer = async () => {
       console.log(`🚀 SealKloud Helpdesk API running on port ${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
     });
+
+    // Start chat WebSocket server
+    startChatServer();
+    console.log('💬 Chat WebSocket server started');
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);

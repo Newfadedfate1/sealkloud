@@ -1,6 +1,47 @@
 # SealKloud Helpdesk System
 
-A comprehensive, production-ready helpdesk system built with React, Node.js, and PostgreSQL. Features role-based access control, ticket management, real-time dashboards, and scalable architecture.
+A comprehensive, production-ready helpdesk system built with React, Node.js, and SQLite. Features role-based access control, ticket management, real-time dashboards, and scalable architecture.
+
+## 🎯 Quick Start
+
+```bash
+# Clone and install
+git clone <repository-url>
+cd sealkloud
+npm install
+
+# Start development
+npm run dev
+
+# Access the application
+# Frontend: http://localhost:5173
+# Backend: http://localhost:3001
+```
+
+## 🚀 Features
+
+### 🎯 **Core Functionality**
+- **Role-Based Authentication** - Client, Employee (L1/L2/L3), Admin access levels
+- **Comprehensive Ticket Management** - Create, assign, track, and resolve tickets
+- **Real-Time Dashboards** - Interactive charts and statistics
+- **Advanced Filtering & Search** - Find tickets quickly with multiple filters
+- **Activity Logging** - Complete audit trail for all ticket actions
+- **CSV Export** - Generate reports for analysis
+
+### 🎨 **User Experience**
+- **Beautiful, Modern UI** - Professional design with smooth animations
+- **Responsive Design** - Works perfectly on all devices
+- **Intuitive Navigation** - Easy-to-use interface for all user types
+- **Real-Time Updates** - Live data synchronization
+
+### 🔧 **Technical Features**
+- **Scalable Architecture** - Built for high concurrency and large datasets
+- **Security First** - JWT authentication, input validation, SQL injection protection
+- **Database Optimization** - Indexed queries, pagination, efficient data structures
+- **Company Customization** - Easy rebranding for different organizations
+- **Comprehensive API** - RESTful API with detailed documentation
+- **Rate Limiting** - Role-based rate limiting to prevent abuse
+- **Error Handling** - Structured error responses with error codes
 
 ## 🚀 Features
 
@@ -32,25 +73,28 @@ A comprehensive, production-ready helpdesk system built with React, Node.js, and
 - **Recharts** for data visualization
 - **Lucide React** for icons
 - **Vite** for development and building
+- **Socket.io Client** for real-time communication
 
 ### **Backend**
 - **Node.js** with Express
-- **PostgreSQL** database
-- **JWT** authentication
+- **SQLite** database (production-ready with proper indexing)
+- **JWT** authentication with role-based access control
 - **bcryptjs** for password hashing
-- **Express Rate Limiting** for security
+- **Express Rate Limiting** with role-based limits
+- **Socket.io** for real-time features
+- **Helmet** for security headers
+- **CORS** for cross-origin requests
 
 ## 📦 Installation
 
 ### Prerequisites
 - Node.js 18+ 
-- PostgreSQL 12+
 - npm or yarn
 
 ### 1. Clone the Repository
 ```bash
 git clone <repository-url>
-cd sealkloud-helpdesk
+cd sealkloud
 ```
 
 ### 2. Install Dependencies
@@ -58,29 +102,32 @@ cd sealkloud-helpdesk
 npm install
 ```
 
-### 3. Database Setup
+### 3. Environment Configuration
 ```bash
-# Create PostgreSQL database
-createdb sealkloud_helpdesk
-
 # Copy environment variables
-cp .env.example .env
+cp env.example .env
 
-# Edit .env with your database credentials
+# Edit .env with your settings
 ```
 
-### 4. Environment Configuration
+### 4. Environment Variables
 Update `.env` file with your settings:
 ```env
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=sealkloud_helpdesk
-DB_USER=postgres
-DB_PASSWORD=your_password
-
-JWT_SECRET=your_super_secret_key
+# Server Configuration
 PORT=3001
+NODE_ENV=development
+
+# JWT Configuration
+JWT_SECRET=your_super_secret_key_here
+
+# Client Configuration
 CLIENT_URL=http://localhost:5173
+
+# Database Configuration (SQLite)
+DB_PATH=./server/data/sealkloud.db
+
+# Optional: Maintenance Mode
+MAINTENANCE_MODE=false
 ```
 
 ### 5. Initialize Database
@@ -112,34 +159,52 @@ npm run dev:server  # Backend only
 
 ## 📊 API Documentation
 
-### Authentication Endpoints
+Comprehensive API documentation is available in [API_DOCUMENTATION.md](./API_DOCUMENTATION.md).
+
+### Quick API Reference
+
+#### Authentication
 ```
-POST /api/auth/login
-POST /api/auth/register
+POST /api/auth/login          # Login user
+POST /api/auth/register       # Register new user
 ```
 
-### Ticket Endpoints
+#### Tickets
 ```
-GET    /api/tickets              # Get all tickets (with filters)
-GET    /api/tickets/:ticketId    # Get single ticket
-POST   /api/tickets              # Create new ticket
-PATCH  /api/tickets/:ticketId    # Update ticket
-```
-
-### User Management
-```
-GET    /api/users                # Get all users (admin only)
-GET    /api/users/profile        # Get current user profile
-PATCH  /api/users/profile        # Update profile
-PATCH  /api/users/password       # Change password
-PATCH  /api/users/:userId/role   # Update user role (admin only)
+GET    /api/tickets           # Get all tickets (with filters)
+GET    /api/tickets/:id       # Get single ticket
+POST   /api/tickets           # Create new ticket
+PATCH  /api/tickets/:id       # Update ticket
 ```
 
-### Dashboard
+#### Users
 ```
-GET    /api/dashboard/stats      # Get dashboard statistics
-GET    /api/dashboard/activity   # Get recent activity
+GET    /api/users             # Get all users (admin only)
+GET    /api/users/profile     # Get current user profile
+PATCH  /api/users/profile     # Update profile
+PATCH  /api/users/password    # Change password
 ```
+
+#### Dashboard
+```
+GET    /api/dashboard/stats   # Get dashboard statistics
+GET    /api/dashboard/activity # Get recent activity
+```
+
+#### System
+```
+GET    /api/health            # Health check
+```
+
+### Error Codes
+The API uses standardized error codes:
+- `AUTH_1001-AUTH_1099` - Authentication errors
+- `VAL_2001-VAL_2099` - Validation errors  
+- `RES_3001-RES_3099` - Resource errors
+- `DB_4001-DB_4099` - Database errors
+- `RATE_5001` - Rate limiting errors
+- `BIZ_6001-BIZ_6099` - Business logic errors
+- `SYS_9001-SYS_9099` - System errors
 
 ## 🏗️ Architecture
 
@@ -159,8 +224,8 @@ tickets
 ├── ticket_id (Unique, e.g., TK-001)
 ├── client_name, client_id
 ├── title, description
-├── problem_level (low|medium|high|critical)
-├── status (open|unassigned|in-progress|resolved|closed)
+├── priority (low|medium|high|critical)
+├── status (open|in-progress|resolved|closed)
 ├── assigned_to (Foreign Key)
 └── submitted_date, last_updated, resolved_date
 
@@ -170,15 +235,24 @@ ticket_activities
 ├── user_id (Foreign Key)
 ├── action, description
 └── timestamp
+
+ticket_chats
+├── id (Primary Key)
+├── ticket_id (Foreign Key)
+├── sender_id (Foreign Key)
+├── sender_role, message
+└── timestamp
 ```
 
 ### Security Features
-- **JWT Authentication** with secure token handling
+- **JWT Authentication** with secure token handling and role-based access control
 - **Password Hashing** using bcryptjs with salt rounds
-- **Rate Limiting** to prevent abuse
-- **Input Validation** using express-validator
+- **Role-Based Rate Limiting** with different limits for different user roles
+- **Input Validation** using express-validator with comprehensive error messages
 - **SQL Injection Protection** with parameterized queries
 - **CORS Configuration** for secure cross-origin requests
+- **Helmet Security Headers** for additional protection
+- **Maintenance Mode** for controlled service downtime
 
 ## 🎨 Customization
 
@@ -206,15 +280,37 @@ npm run build
 ### Environment Variables for Production
 ```env
 NODE_ENV=production
-DB_HOST=your-production-db-host
-JWT_SECRET=your-production-secret
-CLIENT_URL=https://your-domain.com
+PORT=3001
+JWT_SECRET=your_production_secret_key
+CLIENT_URL=https://yourdomain.com
+MAINTENANCE_MODE=false
 ```
+
+### Docker Deployment (Optional)
+```dockerfile
+# Dockerfile example
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+RUN npm run build
+EXPOSE 3001
+CMD ["npm", "start"]
+```
+
+### Deployment Checklist
+- [ ] Set production environment variables
+- [ ] Configure reverse proxy (nginx/Apache)
+- [ ] Set up SSL certificates
+- [ ] Configure database backups
+- [ ] Set up monitoring and logging
+- [ ] Test all functionality in production environment
 
 ### Recommended Deployment Stack
 - **Frontend**: Netlify, Vercel, or AWS S3 + CloudFront
 - **Backend**: AWS EC2, DigitalOcean, or Heroku
-- **Database**: AWS RDS PostgreSQL or managed PostgreSQL service
+- **Database**: SQLite (embedded) or PostgreSQL for larger deployments
 
 ## 📈 Performance Optimization
 
@@ -232,12 +328,75 @@ CLIENT_URL=https://your-domain.com
 
 ## 🧪 Testing
 
+### Running Tests
 ```bash
-# Run tests (when implemented)
+# Run all tests
 npm test
 
-# Run linting
-npm run lint
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run server tests only
+npm run test:server
+
+# Run frontend tests only
+npm test
+
+# Run all tests (frontend + backend)
+npm run test:all
+```
+
+### Test Coverage
+The project includes comprehensive test coverage:
+- **Frontend**: React components, hooks, and utilities
+- **Backend**: API endpoints, middleware, and database operations
+- **Integration**: End-to-end API testing with authentication and error scenarios
+
+### Test Structure
+```
+src/components/__tests__/          # Frontend component tests
+server/__tests__/                  # Backend API tests
+src/utils/test-utils.tsx           # Test utilities and helpers
+```
+
+## 🔧 Development
+
+### Available Scripts
+```bash
+npm run dev              # Start both frontend and backend
+npm run dev:client       # Start frontend only
+npm run dev:server       # Start backend only
+npm run build            # Build for production
+npm run preview          # Preview production build
+npm run lint             # Run ESLint
+npm run lint:fix         # Fix ESLint issues
+```
+
+### Code Quality
+- **ESLint** configuration for consistent code style
+- **TypeScript** for type safety
+- **Prettier** for code formatting
+- **Husky** for pre-commit hooks (optional)
+
+### Development Workflow
+1. **Feature Development**: Create feature branches from `main`
+2. **Testing**: Write tests for new features
+3. **Code Review**: Submit pull requests for review
+4. **Integration**: Merge to `main` after approval
+
+### Debugging
+```bash
+# Debug frontend
+npm run dev:client
+
+# Debug backend
+DEBUG=* npm run dev:server
+
+# Debug tests
+npm run test:watch
 ```
 
 ## 🤝 Contributing

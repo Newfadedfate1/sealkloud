@@ -89,6 +89,9 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
     content: string;
     timestamp: Date;
   }>>([]);
+  
+  // Sidebar collapse state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Filter tickets for L3 using the new system
   const myTickets = tickets.filter(ticket => ticket.assignedTo === user.id);
@@ -641,8 +644,10 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
         active={activeSection}
         onNavigate={handleSidebarNavigate}
         onLogout={onLogout}
+        collapsed={sidebarCollapsed}
+        onCollapse={setSidebarCollapsed}
       />
-      <div className="flex-1 ml-16 md:ml-56 transition-all duration-300">
+      <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-56'}`}>
         {/* Clean Header */}
         <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors duration-200">
           <div className="max-w-7xl mx-auto px-4 py-4">
@@ -657,101 +662,13 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setShowPerformanceMetrics(true)}
-                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                  title="Performance Metrics"
-                >
-                  <BarChart3 className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() => setShowQuickActions(true)}
-                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                  title="Quick Actions"
-                >
-                  <Zap className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() => setShowKnowledgeBase(true)}
-                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                  title="Knowledge Base"
-                >
-                  <BookOpen className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() => {
-                    if (!selectedTicket) {
-                      addToast({
-                        type: 'warning',
-                        title: 'No Ticket Selected',
-                        message: 'Please select a ticket first',
-                        duration: 3000
-                      });
-                    } else {
-                      setShowAIAssistant(true);
-                    }
-                  }}
-                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                  title="AI Assistant"
-                >
-                  <Brain className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() => {
-                    if (!selectedTicket) {
-                      addToast({
-                        type: 'warning',
-                        title: 'No Ticket Selected',
-                        message: 'Please select a ticket first',
-                        duration: 3000
-                      });
-                    } else {
-                      setShowWorkflowAutomation(true);
-                    }
-                  }}
-                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                  title="Workflow Automation"
-                >
-                  <Zap className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() => setShowAdvancedAnalytics(true)}
-                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                  title="Advanced Analytics"
-                >
-                  <BarChart3 className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() => {
-                    if (!selectedTicket) {
-                      addToast({
-                        type: 'warning',
-                        title: 'No Ticket Selected',
-                        message: 'Please select a ticket first',
-                        duration: 3000
-                      });
-                    } else {
-                      setShowCommunicationTools(true);
-                    }
-                  }}
-                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                  title="Communication Tools"
-                >
-                  <MessageSquare className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() => setShowTicketHistory(true)}
-                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                  title="My Ticket History"
-                >
-                  <History className="h-5 w-5" />
-                </button>
                 <ThemeToggle />
                 <button
-                  onClick={onLogout}
+                  onClick={debugTicketAssignment}
                   className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white px-3 py-2 text-sm transition-colors duration-200"
+                  title="Debug Ticket Assignment"
                 >
-                  Sign Out
+                  Debug
                 </button>
               </div>
             </div>

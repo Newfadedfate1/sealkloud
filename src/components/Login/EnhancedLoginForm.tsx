@@ -181,22 +181,7 @@ export const EnhancedLoginForm: React.FC<EnhancedLoginFormProps> = ({
           )}
         </button>
 
-        {/* Form validation summary - only show if there are actual errors */}
-        {Object.keys(errors).length > 0 && formData.email && formData.password && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-            <p className="text-sm text-yellow-800 font-medium mb-1">
-              Please fix the following errors:
-            </p>
-            <ul className="text-xs text-yellow-700 space-y-1">
-              {Object.entries(errors).map(([field, error]) => (
-                <li key={field} className="flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {field}: {error}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+
       </form>
     </div>
   );

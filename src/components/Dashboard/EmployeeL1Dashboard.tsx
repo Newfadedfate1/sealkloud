@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Ticket, Clock, CheckCircle, AlertTriangle, Search, MessageSquare, User, ArrowRight, BarChart3, BookOpen, Brain, History } from 'lucide-react';
+import { Users, Clock, CheckCircle, AlertTriangle, Search, MessageSquare, User, ArrowRight, BarChart3, BookOpen, Brain, History, Ticket } from 'lucide-react';
 import { User as UserType } from '../../types/user';
-import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
+import { Ticket as TicketType, TicketStatus, ProblemLevel, EscalationLevel } from '../../types/ticket';
+import { EnhancedTicketDetailModal } from '../TicketDetail/EnhancedTicketDetailModal';
+import { TicketHistoryModal } from '../TicketHistory/TicketHistoryModal';
 import { useTickets } from '../../contexts/TicketContext';
+import { TicketManagementService } from '../../services/ticketManagement';
 import { EmployeePerformanceMetrics } from './EmployeePerformanceMetrics';
 import { QuickActionsPanel } from './QuickActionsPanel';
 import { EmployeeKnowledgeBase } from './EmployeeKnowledgeBase';
@@ -35,7 +38,7 @@ interface EmployeeL1DashboardProps {
 }
 
 export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, onLogout }) => {
-  const { tickets, updateTicket, isUsingMockData, isLoading, refreshTickets } = useTickets();
+  const { tickets, updateTicket, refreshTickets, ticketService, takeTicket, pushTicketToLevel } = useTickets();
   const { addToast } = useToast();
   
   // Load settings on component mount
@@ -43,7 +46,6 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
     loadSettings();
   }, []);
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
-  const [highlightedTicketId, setHighlightedTicketId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Phase 1 Enhancement States
@@ -55,6 +57,19 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   const [showAdvancedAnalytics, setShowAdvancedAnalytics] = useState(false);
   const [showCommunicationTools, setShowCommunicationTools] = useState(false);
   const [showTicketHistory, setShowTicketHistory] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [activeSection, setActiveSection] = useState('dashboard');
+  const [highlightedTicketId, setHighlightedTicketId] = useState<string | null>(null);
+  
+  // Settings state
+  const [settings, setSettings] = useState({
+    highContrast: false,
+    fontSize: 'medium',
+    reducedMotion: false,
+    emailNotifications: true,
+    desktopNotifications: true,
+    theme: 'system'
+  });
   
   // Quick Wins States
   const [showExportModal, setShowExportModal] = useState(false);
@@ -64,17 +79,8 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   const [showPhase2Demo, setShowPhase2Demo] = useState(false);
   // Phase 4 State
   const [showPhase4Demo, setShowPhase4Demo] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
-  
-  // Settings state
-  const [highContrast, setHighContrast] = useState(false);
-  const [fontSize, setFontSize] = useState('medium');
-  const [reducedMotion, setReducedMotion] = useState(false);
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [desktopNotifications, setDesktopNotifications] = useState(true);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   
   // Chat States
   const [showChat, setShowChat] = useState(false);
@@ -185,13 +191,22 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   ];
   const { isShortcutsOpen, toggleShortcuts, shortcuts } = useKeyboardShortcuts(shortcutDefinitions);
   
-  // Filter tickets for L1 - basic tickets and unassigned
+  // Filter tickets for L1 using the new system
   const myTickets = tickets.filter(ticket => ticket.assignedTo === user.id);
-  const availableTickets = tickets.filter(ticket => 
-    (ticket.status === 'open' || ticket.status === 'unassigned') && 
-    !ticket.assignedTo && 
-    ['low', 'medium'].includes(ticket.priority || ticket.problemLevel)
-  );
+  const availableTickets = ticketService.getAvailableTicketsForLevel('l1');
+  
+  // Debug logging
+  console.log('🔍 Ticket Debug Info:', {
+    totalTickets: tickets.length,
+    myTickets: myTickets.length,
+    availableTickets: availableTickets.length,
+    ticketsWithNewFields: tickets.filter(t => t.currentLevel && t.availableToLevels).length,
+    unassignedTickets: tickets.filter(t => t.status === 'unassigned').length,
+    availableForAssignment: tickets.filter(t => t.isAvailableForAssignment).length,
+    currentUserId: user.id,
+    assignedTickets: tickets.filter(t => t.assignedTo).map(t => ({ id: t.id, assignedTo: t.assignedTo, status: t.status })),
+    myTicketsDetails: myTickets.map(t => ({ id: t.id, assignedTo: t.assignedTo, status: t.status, isAvailable: t.isAvailableForAssignment }))
+  });
   
   const userStats = {
     assigned: myTickets.length,
@@ -206,18 +221,33 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
     { id: '5', email: 'l3expert@sealkloud.com', firstName: 'Level 3', lastName: 'Expert', role: 'employee_l3' as const, companyId: 'sealkloud', isActive: true }
   ];
 
+  // Initialize the service with current data
+  React.useEffect(() => {
+    ticketService.initialize(tickets, availableUsers);
+  }, [tickets, availableUsers, ticketService]);
+
   const handleTicketUpdate = (ticketId: string, updates: any) => {
     updateTicket(ticketId, updates);
     setSelectedTicket(null);
   };
 
   const handleTakeTicket = (ticketId: string) => {
-    handleTicketUpdate(ticketId, { 
-      assignedTo: user.id, 
-      assignedToName: `${user.firstName} ${user.lastName}`,
-      status: 'in-progress',
-      lastUpdated: new Date()
-    });
+    const result = takeTicket(ticketId, user.id);
+    if (result.success) {
+      showToast(result.message, 'success');
+    } else {
+      showToast(result.message, 'error');
+    }
+  };
+
+  const handlePushToLevel = (ticketId: string, targetLevel: 'l2' | 'l3') => {
+    const reason = targetLevel === 'l2' ? 'Requires technical expertise' : 'Requires expert intervention';
+    const result = pushTicketToLevel(ticketId, user.id, targetLevel, reason);
+    if (result.success) {
+      showToast(result.message, 'success');
+    } else {
+      showToast(result.message, 'error');
+    }
   };
 
   const handleStartWork = (ticketId: string) => {
@@ -470,27 +500,23 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
 
   const handleSaveSettings = () => {
     // Save settings to localStorage
-    const settings = {
-      highContrast,
-      fontSize,
-      reducedMotion,
-      emailNotifications,
-      desktopNotifications,
-      theme
+    const settingsToSave = {
+      highContrast: settings.highContrast,
+      fontSize: settings.fontSize,
+      reducedMotion: settings.reducedMotion,
+      emailNotifications: settings.emailNotifications,
+      desktopNotifications: settings.desktopNotifications,
+      theme: settings.theme
     };
     
-    localStorage.setItem('sealkloud-settings', JSON.stringify(settings));
-    
-    // Apply settings immediately
-    applySettings(settings);
+    localStorage.setItem('employeeSettings', JSON.stringify(settingsToSave));
     
     addToast({
       type: 'success',
       title: 'Settings Saved',
       message: 'Your settings have been saved successfully!',
-      duration: 3000
+      duration: 2000
     });
-    setShowSettings(false);
   };
 
   const applySettings = (settings: any) => {
@@ -526,15 +552,10 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   };
 
   const loadSettings = () => {
-    const savedSettings = localStorage.getItem('sealkloud-settings');
+    const savedSettings = localStorage.getItem('employeeSettings');
     if (savedSettings) {
       const settings = JSON.parse(savedSettings);
-      setHighContrast(settings.highContrast || false);
-      setFontSize(settings.fontSize || 'medium');
-      setReducedMotion(settings.reducedMotion || false);
-      setEmailNotifications(settings.emailNotifications !== false);
-      setDesktopNotifications(settings.desktopNotifications !== false);
-      setTheme(settings.theme || 'light');
+      setSettings(settings);
       
       // Apply loaded settings
       applySettings(settings);
@@ -542,24 +563,14 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   };
 
   const resetToDefaults = () => {
-    setHighContrast(false);
-    setFontSize('medium');
-    setReducedMotion(false);
-    setEmailNotifications(true);
-    setDesktopNotifications(true);
-    setTheme('light');
-    
-    // Apply default settings
-    const defaultSettings = {
+    setSettings({
       highContrast: false,
       fontSize: 'medium',
       reducedMotion: false,
       emailNotifications: true,
       desktopNotifications: true,
-      theme: 'light'
-    };
-    
-    applySettings(defaultSettings);
+      theme: 'system'
+    });
     
     addToast({
       type: 'info',
@@ -606,7 +617,6 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
     ticket.clientName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const [activeSection, setActiveSection] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Navigation handler for sidebar
@@ -638,11 +648,39 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
       case 'security':
         setShowPhase2Demo(true);
         break;
+      case 'history':
+        setShowTicketHistory(true);
+        break;
       case 'settings':
         setShowSettings(true);
         break;
       default:
         break;
+    }
+  };
+
+  // Test function to debug ticket assignment
+  const debugTicketAssignment = () => {
+    console.log('🧪 Debug Ticket Assignment Test');
+    console.log('Current User:', { id: user.id, email: user.email, role: user.role });
+    console.log('All Tickets:', tickets.map(t => ({ 
+      id: t.id, 
+      clientId: t.clientId, 
+      assignedTo: t.assignedTo, 
+      status: t.status, 
+      isAvailable: t.isAvailableForAssignment,
+      availableToLevels: t.availableToLevels 
+    })));
+    console.log('My Tickets:', myTickets);
+    console.log('Available Tickets:', availableTickets);
+    
+    // Test taking the first available ticket
+    if (availableTickets.length > 0) {
+      const testTicket = availableTickets[0];
+      console.log('🧪 Testing take ticket for:', testTicket.id);
+      handleTakeTicket(testTicket.id);
+    } else {
+      console.log('🧪 No available tickets to test with');
     }
   };
 
@@ -657,8 +695,8 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
       />
       <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-56'}`}>
         <DataSourceIndicator 
-          isUsingMockData={isUsingMockData}
-          isLoading={isLoading}
+          isUsingMockData={false}
+          isLoading={false}
           onRefresh={refreshTickets}
         />
         {/* Clean Header */}
@@ -673,7 +711,22 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                 <p className="text-sm text-gray-600 dark:text-gray-400 transition-colors duration-200">Welcome back, {user.firstName}</p>
               </div>
             </div>
-            {/* User avatar or info can go here */}
+            <div className="flex items-center gap-4">
+              <ThemeToggle />
+              <button
+                onClick={debugTicketAssignment}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                title="Debug Ticket Assignment"
+              >
+                🧪 Debug
+              </button>
+              <button
+                onClick={onLogout}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </header>
 
@@ -786,15 +839,39 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                               Created {new Date(ticket.submittedDate).toLocaleDateString()}
                             </div>
                           </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleTakeTicket(ticket.id);
-                            }}
-                            className="ml-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
-                          >
-                            Take
-                          </button>
+                          <div className="ml-4 flex flex-col gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTakeTicket(ticket.id);
+                              }}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
+                            >
+                              Take
+                            </button>
+                            {ticket.availableToLevels && ticket.availableToLevels.includes('l2') && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePushToLevel(ticket.id, 'l2');
+                                }}
+                                className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
+                              >
+                                Push to L2
+                              </button>
+                            )}
+                            {ticket.availableToLevels && ticket.availableToLevels.includes('l3') && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePushToLevel(ticket.id, 'l3');
+                                }}
+                                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
+                              >
+                                Push to L3
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -880,17 +957,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                                 Start
                               </button>
                             )}
-                            {ticket.status === 'in-progress' && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleResolveTicket(ticket.id);
-                                }}
-                                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
-                              >
-                                Resolve
-                              </button>
-                            )}
+
                           </div>
                         </div>
                       </div>
@@ -945,6 +1012,40 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                     </ul>
                   </div>
                 </div>
+                {/* Test button for debugging */}
+                <div className="mt-4 pt-4 border-t border-green-200">
+                  <button
+                    onClick={() => {
+                      console.log('🔧 Creating test ticket...');
+                      const testTicket = {
+                        id: `TK-TEST-${Date.now()}`,
+                        clientName: 'Test Client',
+                        clientId: 'test-client',
+                        title: 'Test Ticket',
+                        description: 'This is a test ticket created for debugging',
+                        problemLevel: 'medium' as ProblemLevel,
+                        priority: 'medium' as ProblemLevel,
+                        status: 'unassigned' as TicketStatus,
+                        submittedDate: new Date(),
+                        lastUpdated: new Date(),
+                        currentLevel: 'l1' as EscalationLevel,
+                        availableToLevels: (['l1'] as EscalationLevel[]),
+                        escalationHistory: [],
+                        isAvailableForAssignment: true,
+                        activityLog: [],
+                        clientNotifications: []
+                      };
+                      console.log('🔧 Test ticket:', testTicket);
+                      // Use the ticket context to add the ticket
+                      const { addTicket } = useTickets();
+                      addTicket(testTicket);
+                      showToast('Test ticket created!', 'success');
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Create Test Ticket
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -952,14 +1053,14 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
 
         {/* Ticket Detail Modal */}
         {selectedTicket && (
-          <TicketDetailModal
-            ticket={selectedTicket}
-            isOpen={!!selectedTicket}
-            onClose={() => setSelectedTicket(null)}
-            onUpdate={handleTicketUpdate}
-            currentUser={user}
-            availableUsers={availableUsers}
-          />
+                  <EnhancedTicketDetailModal
+          ticket={selectedTicket}
+          isOpen={!!selectedTicket}
+          onClose={() => setSelectedTicket(null)}
+          onUpdate={handleTicketUpdate}
+          currentUser={user}
+          availableUsers={availableUsers}
+        />
         )}
 
         {/* Phase 1 Enhancement Modals */}
@@ -1068,6 +1169,16 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
           />
         )}
 
+        {/* Enhanced Ticket History Modal */}
+        <TicketHistoryModal
+          isOpen={false}
+          onClose={() => {}}
+          tickets={[]}
+          currentUser={user}
+          availableUsers={[]}
+          onUpdate={(id, updates) => {}}
+        />
+
         {/* Quick Wins Modals */}
         <KeyboardShortcuts
           isOpen={isShortcutsOpen}
@@ -1118,7 +1229,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
         <ExportModal
           isOpen={showExportModal}
           onClose={() => setShowExportModal(false)}
-          data={{ tickets: tickets, type: 'tickets' }}
+          data={{ tickets: [], type: 'tickets' }}
           onExport={async (format, filters) => {
             console.log('Exporting tickets:', format, filters);
             // Simulate export
@@ -1213,8 +1324,8 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                         </div>
                         <button 
                           onClick={() => {
-                            const newValue = !highContrast;
-                            setHighContrast(newValue);
+                            const newValue = !settings.highContrast;
+                            setSettings(prev => ({ ...prev, highContrast: newValue }));
                             // Apply immediately
                             if (newValue) {
                               document.documentElement.classList.add('high-contrast');
@@ -1223,12 +1334,12 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                             }
                           }}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                            highContrast ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                            settings.highContrast ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
                           }`}
                         >
                           <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                              highContrast ? 'translate-x-6' : 'translate-x-1'
+                              settings.highContrast ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
                         </button>
@@ -1248,10 +1359,10 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                           </div>
                         </div>
                         <select 
-                          value={fontSize}
+                          value={settings.fontSize}
                           onChange={(e) => {
                             const newSize = e.target.value;
-                            setFontSize(newSize);
+                            setSettings(prev => ({ ...prev, fontSize: newSize }));
                             // Apply immediately
                             const fontSizeMap = {
                               'small': '0.875rem',
@@ -1285,8 +1396,8 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                         </div>
                         <button 
                           onClick={() => {
-                            const newValue = !reducedMotion;
-                            setReducedMotion(newValue);
+                            const newValue = !settings.reducedMotion;
+                            setSettings(prev => ({ ...prev, reducedMotion: newValue }));
                             // Apply immediately
                             if (newValue) {
                               document.documentElement.style.setProperty('--motion-reduce', '1');
@@ -1295,12 +1406,12 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                             }
                           }}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                            reducedMotion ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'
+                            settings.reducedMotion ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'
                           }`}
                         >
                           <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                              reducedMotion ? 'translate-x-6' : 'translate-x-1'
+                              settings.reducedMotion ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
                         </button>
@@ -1333,14 +1444,14 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                           </div>
                         </div>
                         <button 
-                          onClick={() => setEmailNotifications(!emailNotifications)}
+                          onClick={() => setSettings(prev => ({ ...prev, emailNotifications: !prev.emailNotifications }))}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                            emailNotifications ? 'bg-orange-600' : 'bg-gray-300 dark:bg-gray-600'
+                            settings.emailNotifications ? 'bg-orange-600' : 'bg-gray-300 dark:bg-gray-600'
                           }`}
                         >
                           <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                              emailNotifications ? 'translate-x-6' : 'translate-x-1'
+                              settings.emailNotifications ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
                         </button>
@@ -1360,14 +1471,14 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                           </div>
                         </div>
                         <button 
-                          onClick={() => setDesktopNotifications(!desktopNotifications)}
+                          onClick={() => setSettings(prev => ({ ...prev, desktopNotifications: !prev.desktopNotifications }))}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                            desktopNotifications ? 'bg-teal-600' : 'bg-gray-300 dark:bg-gray-600'
+                            settings.desktopNotifications ? 'bg-teal-600' : 'bg-gray-300 dark:bg-gray-600'
                           }`}
                         >
                           <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                              desktopNotifications ? 'translate-x-6' : 'translate-x-1'
+                              settings.desktopNotifications ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
                         </button>
@@ -1388,12 +1499,12 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                     <div className="grid grid-cols-2 gap-4">
                       <button 
                         onClick={() => {
-                          setTheme('light');
+                          setSettings(prev => ({ ...prev, theme: 'light' }));
                           // Apply immediately
                           document.documentElement.classList.remove('dark');
                         }}
                         className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                          theme === 'light' 
+                          settings.theme === 'light' 
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
                             : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                         }`}
@@ -1405,12 +1516,12 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                       </button>
                       <button 
                         onClick={() => {
-                          setTheme('dark');
+                          setSettings(prev => ({ ...prev, theme: 'dark' }));
                           // Apply immediately
                           document.documentElement.classList.add('dark');
                         }}
                         className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                          theme === 'dark' 
+                          settings.theme === 'dark' 
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
                             : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                         }`}

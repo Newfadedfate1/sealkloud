@@ -8,7 +8,8 @@ import {
   LogOut,
   Users,
   MessageSquare,
-  Command
+  Command,
+  History
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -26,6 +27,7 @@ const navItems = [
   { id: 'analytics', label: 'Analytics', icon: <BarChart3 className="w-5 h-5" /> },
   { id: 'team', label: 'Quick Actions', icon: <Command className="w-5 h-5" /> },
   { id: 'messages', label: 'Messages', icon: <MessageSquare className="w-5 h-5" /> },
+  { id: 'history', label: 'Ticket History', icon: <History className="w-5 h-5" /> },
   { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
 ];
 

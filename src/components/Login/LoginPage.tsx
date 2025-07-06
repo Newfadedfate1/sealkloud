@@ -32,33 +32,6 @@ export const LoginPage: React.FC = () => {
             isLoading={isLoading}
             error={error}
           />
-          
-          {/* Quick Wins Demo Button */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <button
-              onClick={() => {
-                // Set demo user and login
-                const demoUser = {
-                  id: 'demo',
-                  email: 'demo@sealkloud.com',
-                  firstName: 'Demo',
-                  lastName: 'User',
-                  role: 'demo' as const,
-                  companyId: 'sealkloud',
-                  isActive: true
-                };
-                localStorage.setItem('user', JSON.stringify(demoUser));
-                window.location.reload();
-              }}
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
-            >
-              <Zap className="h-5 w-5" />
-              View Quick Wins Demo
-            </button>
-            <p className="text-xs text-gray-500 mt-2 text-center">
-              See all the new UI/UX improvements in action
-            </p>
-          </div>
         </div>
 
         {/* Demo Credentials */}

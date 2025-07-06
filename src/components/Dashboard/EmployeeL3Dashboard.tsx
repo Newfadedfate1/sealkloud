@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Zap, Ticket, Clock, CheckCircle, AlertTriangle, Shield, Search, MessageSquare, Database, Server, Code, Eye, CheckSquare, BarChart3, BookOpen, Plus, Brain, Settings, FileText, Activity, History } from 'lucide-react';
 import { User as UserType } from '../../types/user';
 import { TicketStatsCard } from './TicketStatsCard';
-import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
+import { EnhancedTicketDetailModal } from '../TicketDetail/EnhancedTicketDetailModal';
+import { TicketHistoryModal } from '../TicketHistory/TicketHistoryModal';
 import { useTickets } from '../../contexts/TicketContext';
 import { EmployeePerformanceMetrics } from './EmployeePerformanceMetrics';
 import { QuickActionsPanel } from './QuickActionsPanel';
@@ -22,7 +23,7 @@ interface EmployeeL3DashboardProps {
 }
 
 export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, onLogout }) => {
-  const { tickets, updateTicket } = useTickets();
+  const { tickets, updateTicket, refreshTickets, ticketService, takeTicket, pushTicketToLevel } = useTickets();
   const { addToast } = useToast();
   
   // Load settings on component mount
@@ -41,6 +42,7 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
   const [showAdvancedAnalytics, setShowAdvancedAnalytics] = useState(false);
   const [showCommunicationTools, setShowCommunicationTools] = useState(false);
   const [showTicketHistory, setShowTicketHistory] = useState(false);
+  const [showTicketHistoryModal, setShowTicketHistoryModal] = useState(false);
   const [showSelectTicketWarning, setShowSelectTicketWarning] = useState(false);
   
   // Sidebar navigation state
@@ -55,18 +57,15 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
   const [desktopNotifications, setDesktopNotifications] = useState(true);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-  // Filter tickets for L3 - critical issues and complex problems
+  // Filter tickets for L3 using the ticket service
   const myTickets = tickets.filter(ticket => ticket.assignedTo === user.id);
-  const criticalTickets = tickets.filter(ticket => 
-    (ticket.status === 'unassigned' && ticket.problemLevel === 'critical') ||
-    (ticket.problemLevel === 'high' && ticket.status !== 'resolved')
-  );
+  const availableTickets = ticketService.getAvailableTicketsForLevel('l3');
   
   const userStats = {
     assigned: myTickets.length,
-    critical: tickets.filter(t => t.problemLevel === 'critical' && t.status !== 'resolved').length,
+    available: availableTickets.length,
     resolved: myTickets.filter(t => t.status === 'resolved').length,
-    consulting: tickets.filter(t => t.problemLevel === 'high' && t.status === 'in-progress').length
+    critical: tickets.filter(t => t.problemLevel === 'critical' && t.status !== 'resolved').length
   };
 
   const availableUsers = [
@@ -81,12 +80,22 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
   };
 
   const handleTakeTicket = (ticketId: string) => {
-    handleTicketUpdate(ticketId, { 
-      assignedTo: user.id, 
-      assignedToName: `${user.firstName} ${user.lastName}`,
-      status: 'in-progress',
-      lastUpdated: new Date()
-    });
+    const result = takeTicket(ticketId, user.id);
+    if (result.success) {
+      addToast({
+        type: 'success',
+        title: 'Ticket Taken',
+        message: `Successfully took ticket ${ticketId}`,
+        duration: 2500
+      });
+    } else {
+      addToast({
+        type: 'error',
+        title: 'Error',
+        message: result.message,
+        duration: 3000
+      });
+    }
   };
 
   // Phase 1 Enhancement Handlers
@@ -287,6 +296,9 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
       case 'automation':
         setShowWorkflowAutomation(true);
         break;
+      case 'history':
+        setShowTicketHistoryModal(true);
+        break;
       case 'settings':
         setShowSettings(true);
         break;
@@ -419,13 +431,13 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
               <div className="text-sm text-gray-600 dark:text-gray-400">Resolved Today</div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
-              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{userStats.consulting}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Consulting</div>
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{userStats.available}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Available Cases</div>
             </div>
           </div>
 
           {/* Critical Issues Alert */}
-          {criticalTickets.filter(t => t.problemLevel === 'critical' && t.status !== 'resolved').length > 0 && (
+          {tickets.filter(t => t.problemLevel === 'critical' && t.status !== 'resolved').length > 0 && (
             <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-2 border-red-200 dark:border-red-700 rounded-xl p-6 mb-8 transition-colors duration-200">
               <div className="flex items-center gap-3 mb-4">
                 <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
@@ -523,15 +535,7 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                               <Eye className="h-3 w-3" />
                               View
                             </button>
-                            {ticket.status === 'in-progress' && (
-                              <button
-                                onClick={() => handleTicketUpdate(ticket.id, { status: 'resolved', resolvedDate: new Date(), lastUpdated: new Date() })}
-                                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
-                              >
-                                <CheckSquare className="h-3 w-3" />
-                                Resolve
-                              </button>
-                            )}
+
                           </div>
                         </div>
                       </div>
@@ -666,14 +670,14 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
 
         {/* Ticket Detail Modal */}
         {selectedTicket && (
-          <TicketDetailModal
-            ticket={selectedTicket}
-            isOpen={!!selectedTicket}
-            onClose={() => setSelectedTicket(null)}
-            onUpdate={handleTicketUpdate}
-            currentUser={user}
-            availableUsers={availableUsers}
-          />
+                  <EnhancedTicketDetailModal
+          ticket={selectedTicket}
+          isOpen={!!selectedTicket}
+          onClose={() => setSelectedTicket(null)}
+          onUpdate={handleTicketUpdate}
+          currentUser={user}
+          availableUsers={availableUsers}
+        />
         )}
 
         {/* Phase 1 Enhancement Modals */}
@@ -760,6 +764,7 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
           <IntelligentCommunicationTools
             ticket={selectedTicket}
             userRole="employee_l3"
+            currentUser={user}
             onSendMessage={(message, type) => {
               console.log('Sent message:', message, type);
               setShowCommunicationTools(false);
@@ -780,6 +785,16 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
             onClose={() => setShowTicketHistory(false)}
           />
         )}
+
+        {/* Enhanced Ticket History Modal */}
+        <TicketHistoryModal
+          isOpen={showTicketHistoryModal}
+          onClose={() => setShowTicketHistoryModal(false)}
+          tickets={tickets}
+          currentUser={user}
+          availableUsers={availableUsers}
+          onUpdate={handleTicketUpdate}
+        />
 
         {/* Settings Modal */}
         {showSettings && (

@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Ticket, Clock, CheckCircle, AlertTriangle, Zap, Search, MessageSquare, Database, ArrowUp, ArrowDown, Eye, Play, CheckSquare, BarChart3, BookOpen, Plus, Brain, History } from 'lucide-react';
 import { User as UserType } from '../../types/user';
+import { Ticket as TicketType, TicketStatus, ProblemLevel, EscalationLevel } from '../../types/ticket';
 import { TicketStatsCard } from './TicketStatsCard';
-import { TicketDetailModal } from '../TicketDetail/TicketDetailModal';
+import { EnhancedTicketDetailModal } from '../TicketDetail/EnhancedTicketDetailModal';
+import { TicketHistoryModal } from '../TicketHistory/TicketHistoryModal';
 import { useTickets } from '../../contexts/TicketContext';
+import { TicketManagementService } from '../../services/ticketManagement';
 import { EmployeePerformanceMetrics } from './EmployeePerformanceMetrics';
 import { QuickActionsPanel } from './QuickActionsPanel';
 import { EmployeeKnowledgeBase } from './EmployeeKnowledgeBase';
@@ -22,7 +25,7 @@ interface EmployeeL2DashboardProps {
 }
 
 export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, onLogout }) => {
-  const { tickets, updateTicket } = useTickets();
+  const { tickets, updateTicket, refreshTickets, ticketService, takeTicket, pushTicketToLevel } = useTickets();
   const { addToast } = useToast();
   
   // Load settings on component mount
@@ -47,24 +50,31 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
   const [showSettings, setShowSettings] = useState(false);
   
   // Settings state
-  const [highContrast, setHighContrast] = useState(false);
-  const [fontSize, setFontSize] = useState('medium');
-  const [reducedMotion, setReducedMotion] = useState(false);
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [desktopNotifications, setDesktopNotifications] = useState(true);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [settings, setSettings] = useState({
+    highContrast: false,
+    fontSize: 'medium',
+    reducedMotion: false,
+    emailNotifications: true,
+    desktopNotifications: true,
+    theme: 'system'
+  });
 
-  // Filter tickets for L2 - medium/high priority and escalated tickets
+  // Filter tickets for L2 using the new system
   const myTickets = tickets.filter(ticket => ticket.assignedTo === user.id);
-  const escalatedTickets = tickets.filter(ticket => 
-    ticket.status === 'unassigned' && ['medium', 'high'].includes(ticket.problemLevel)
+  const availableTickets = ticketService.getAvailableTicketsForLevel('l2');
+  
+  // Filter my tickets based on search
+  const filteredMyTickets = myTickets.filter(ticket =>
+    ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ticket.clientName.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
   const userStats = {
     assigned: myTickets.length,
     inProgress: myTickets.filter(t => t.status === 'in-progress').length,
     resolved: myTickets.filter(t => t.status === 'resolved').length,
-    escalated: escalatedTickets.length
+    available: availableTickets.length
   };
 
   const availableUsers = [
@@ -79,12 +89,22 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
   };
 
   const handleTakeTicket = (ticketId: string) => {
-    handleTicketUpdate(ticketId, { 
-      assignedTo: user.id, 
-      assignedToName: `${user.firstName} ${user.lastName}`,
-      status: 'in-progress',
-      lastUpdated: new Date()
-    });
+    const result = takeTicket(ticketId, user.id);
+    if (result.success) {
+      addToast({
+        type: 'success',
+        title: 'Ticket Taken',
+        message: `Successfully took ticket ${ticketId}`,
+        duration: 2500
+      });
+    } else {
+      addToast({
+        type: 'error',
+        title: 'Error',
+        message: result.message,
+        duration: 3000
+      });
+    }
   };
 
   const handleEscalateToL3 = (ticketId: string) => {
@@ -106,6 +126,26 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
         assignedToName: `${l1User.firstName} ${l1User.lastName}`,
         problemLevel: 'medium',
         lastUpdated: new Date()
+      });
+    }
+  };
+
+  const handlePushToLevel = (ticketId: string, targetLevel: 'l1' | 'l3') => {
+    const reason = targetLevel === 'l1' ? 'Delegating to Level 1 for basic support' : 'Escalating to Level 3 for expert assistance';
+    const result = pushTicketToLevel(ticketId, user.id, targetLevel, reason);
+    if (result.success) {
+      addToast({
+        type: 'success',
+        title: 'Ticket Pushed',
+        message: `Successfully pushed ticket to ${targetLevel.toUpperCase()}`,
+        duration: 2500
+      });
+    } else {
+      addToast({
+        type: 'error',
+        title: 'Error',
+        message: result.message,
+        duration: 3000
       });
     }
   };
@@ -165,27 +205,23 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
 
   const handleSaveSettings = () => {
     // Save settings to localStorage
-    const settings = {
-      highContrast,
-      fontSize,
-      reducedMotion,
-      emailNotifications,
-      desktopNotifications,
-      theme
+    const settingsToSave = {
+      highContrast: settings.highContrast,
+      fontSize: settings.fontSize,
+      reducedMotion: settings.reducedMotion,
+      emailNotifications: settings.emailNotifications,
+      desktopNotifications: settings.desktopNotifications,
+      theme: settings.theme
     };
     
-    localStorage.setItem('sealkloud-settings', JSON.stringify(settings));
-    
-    // Apply settings immediately
-    applySettings(settings);
+    localStorage.setItem('employeeL2Settings', JSON.stringify(settingsToSave));
     
     addToast({
       type: 'success',
       title: 'Settings Saved',
       message: 'Your settings have been saved successfully!',
-      duration: 3000
+      duration: 2000
     });
-    setShowSettings(false);
   };
 
   const applySettings = (settings: any) => {
@@ -221,28 +257,25 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
   };
 
   const loadSettings = () => {
-    const savedSettings = localStorage.getItem('sealkloud-settings');
+    const savedSettings = localStorage.getItem('employeeL2Settings');
     if (savedSettings) {
-      const settings = JSON.parse(savedSettings);
-      setHighContrast(settings.highContrast || false);
-      setFontSize(settings.fontSize || 'medium');
-      setReducedMotion(settings.reducedMotion || false);
-      setEmailNotifications(settings.emailNotifications !== false);
-      setDesktopNotifications(settings.desktopNotifications !== false);
-      setTheme(settings.theme || 'light');
+      const loadedSettings = JSON.parse(savedSettings);
+      setSettings(loadedSettings);
       
       // Apply loaded settings
-      applySettings(settings);
+      applySettings(loadedSettings);
     }
   };
 
   const resetToDefaults = () => {
-    setHighContrast(false);
-    setFontSize('medium');
-    setReducedMotion(false);
-    setEmailNotifications(true);
-    setDesktopNotifications(true);
-    setTheme('light');
+    setSettings({
+      highContrast: false,
+      fontSize: 'medium',
+      reducedMotion: false,
+      emailNotifications: true,
+      desktopNotifications: true,
+      theme: 'system'
+    });
     
     // Apply default settings
     const defaultSettings = {
@@ -251,7 +284,7 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
       reducedMotion: false,
       emailNotifications: true,
       desktopNotifications: true,
-      theme: 'light'
+      theme: 'system'
     };
     
     applySettings(defaultSettings);
@@ -263,12 +296,6 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
       duration: 3000
     });
   };
-
-  const filteredMyTickets = myTickets.filter(ticket =>
-    ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ticket.clientName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   // Sidebar navigation handler
   const handleSidebarNavigate = (section: string) => {
@@ -292,6 +319,9 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
         break;
       case 'automation':
         setShowWorkflowAutomation(true);
+        break;
+      case 'history':
+        setShowTicketHistory(true);
         break;
       case 'settings':
         setShowSettings(true);
@@ -407,8 +437,8 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
               <div className="text-sm text-gray-600 dark:text-gray-400">Resolved Today</div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
-              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{userStats.escalated}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Escalated</div>
+              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{userStats.available}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Available</div>
             </div>
           </div>
 
@@ -416,13 +446,13 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
             {/* Escalated Tickets - Left Column */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
               <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Escalated Tickets</h2>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Available Tickets</h2>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Medium to high complexity technical issues</p>
               </div>
               <div className="p-6">
-                {escalatedTickets.length > 0 ? (
+                {availableTickets.length > 0 ? (
                   <div className="space-y-4">
-                    {escalatedTickets.slice(0, 5).map(ticket => (
+                    {availableTickets.slice(0, 5).map(ticket => (
                       <div key={ticket.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -447,22 +477,22 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
                               Take
                             </button>
                             <div className="flex gap-1">
-                              {ticket.problemLevel === 'high' && (
+                              {ticket.availableToLevels && ticket.availableToLevels.includes('l1') && (
                                 <button
-                                  onClick={() => handleEscalateToL3(ticket.id)}
-                                  className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors duration-200 flex items-center gap-1"
-                                >
-                                  <ArrowUp className="h-3 w-3" />
-                                  L3
-                                </button>
-                              )}
-                              {ticket.problemLevel === 'medium' && (
-                                <button
-                                  onClick={() => handleDelegateToL1(ticket.id)}
+                                  onClick={() => handlePushToLevel(ticket.id, 'l1')}
                                   className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors duration-200 flex items-center gap-1"
                                 >
                                   <ArrowDown className="h-3 w-3" />
                                   L1
+                                </button>
+                              )}
+                              {ticket.availableToLevels && ticket.availableToLevels.includes('l3') && (
+                                <button
+                                  onClick={() => handlePushToLevel(ticket.id, 'l3')}
+                                  className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors duration-200 flex items-center gap-1"
+                                >
+                                  <ArrowUp className="h-3 w-3" />
+                                  L3
                                 </button>
                               )}
                             </div>
@@ -474,7 +504,7 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
                 ) : (
                   <div className="text-center py-8">
                     <CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-4" />
-                    <p className="text-gray-500 dark:text-gray-400">No escalated tickets</p>
+                    <p className="text-gray-500 dark:text-gray-400">No available tickets</p>
                     <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">All technical issues are under control</p>
                   </div>
                 )}
@@ -531,15 +561,7 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
                               <Eye className="h-3 w-3" />
                               View
                             </button>
-                            {ticket.status === 'in-progress' && (
-                              <button
-                                onClick={() => handleTicketUpdate(ticket.id, { status: 'resolved', resolvedDate: new Date(), lastUpdated: new Date() })}
-                                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
-                              >
-                                <CheckSquare className="h-3 w-3" />
-                                Resolve
-                              </button>
-                            )}
+
                           </div>
                         </div>
                       </div>
@@ -551,7 +573,7 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
                       <>
                         <Ticket className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                         <p className="text-gray-500 dark:text-gray-400">No tickets assigned</p>
-                        <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">Take some tickets from the escalated list</p>
+                        <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">Take some tickets from the available list</p>
                       </>
                     ) : (
                       <>
@@ -601,14 +623,14 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
 
         {/* Ticket Detail Modal */}
         {selectedTicket && (
-          <TicketDetailModal
-            ticket={selectedTicket}
-            isOpen={!!selectedTicket}
-            onClose={() => setSelectedTicket(null)}
-            onUpdate={handleTicketUpdate}
-            currentUser={user}
-            availableUsers={availableUsers}
-          />
+                  <EnhancedTicketDetailModal
+          ticket={selectedTicket}
+          isOpen={!!selectedTicket}
+          onClose={() => setSelectedTicket(null)}
+          onUpdate={handleTicketUpdate}
+          currentUser={user}
+          availableUsers={availableUsers}
+        />
         )}
 
         {/* Phase 1 Enhancement Modals */}
@@ -695,6 +717,7 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
           <IntelligentCommunicationTools
             ticket={selectedTicket}
             userRole="employee_l2"
+            currentUser={user}
             onSendMessage={(message, type) => {
               console.log('Sent message:', message, type);
               setShowCommunicationTools(false);
@@ -750,8 +773,8 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
                         </div>
                         <button 
                           onClick={() => {
-                            const newValue = !highContrast;
-                            setHighContrast(newValue);
+                            const newValue = !settings.highContrast;
+                            setSettings(prev => ({ ...prev, highContrast: newValue }));
                             // Apply immediately
                             if (newValue) {
                               document.documentElement.classList.add('high-contrast');
@@ -760,12 +783,12 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
                             }
                           }}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                            highContrast ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                            settings.highContrast ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
                           }`}
                         >
                           <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                              highContrast ? 'translate-x-6' : 'translate-x-1'
+                              settings.highContrast ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
                         </button>
@@ -785,10 +808,10 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
                           </div>
                         </div>
                         <select 
-                          value={fontSize}
+                          value={settings.fontSize}
                           onChange={(e) => {
                             const newSize = e.target.value;
-                            setFontSize(newSize);
+                            setSettings(prev => ({ ...prev, fontSize: newSize }));
                             // Apply immediately
                             const fontSizeMap = {
                               'small': '0.875rem',
@@ -822,8 +845,8 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
                         </div>
                         <button 
                           onClick={() => {
-                            const newValue = !reducedMotion;
-                            setReducedMotion(newValue);
+                            const newValue = !settings.reducedMotion;
+                            setSettings(prev => ({ ...prev, reducedMotion: newValue }));
                             // Apply immediately
                             if (newValue) {
                               document.documentElement.style.setProperty('--motion-reduce', '1');
@@ -832,12 +855,12 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
                             }
                           }}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                            reducedMotion ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'
+                            settings.reducedMotion ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'
                           }`}
                         >
                           <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                              reducedMotion ? 'translate-x-6' : 'translate-x-1'
+                              settings.reducedMotion ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
                         </button>
@@ -870,14 +893,14 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
                           </div>
                         </div>
                         <button 
-                          onClick={() => setEmailNotifications(!emailNotifications)}
+                          onClick={() => setSettings(prev => ({ ...prev, emailNotifications: !prev.emailNotifications }))}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                            emailNotifications ? 'bg-orange-600' : 'bg-gray-300 dark:bg-gray-600'
+                            settings.emailNotifications ? 'bg-orange-600' : 'bg-gray-300 dark:bg-gray-600'
                           }`}
                         >
                           <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                              emailNotifications ? 'translate-x-6' : 'translate-x-1'
+                              settings.emailNotifications ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
                         </button>
@@ -897,14 +920,14 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
                           </div>
                         </div>
                         <button 
-                          onClick={() => setDesktopNotifications(!desktopNotifications)}
+                          onClick={() => setSettings(prev => ({ ...prev, desktopNotifications: !prev.desktopNotifications }))}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                            desktopNotifications ? 'bg-teal-600' : 'bg-gray-300 dark:bg-gray-600'
+                            settings.desktopNotifications ? 'bg-teal-600' : 'bg-gray-300 dark:bg-gray-600'
                           }`}
                         >
                           <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                              desktopNotifications ? 'translate-x-6' : 'translate-x-1'
+                              settings.desktopNotifications ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
                         </button>
@@ -925,12 +948,12 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
                     <div className="grid grid-cols-2 gap-4">
                       <button 
                         onClick={() => {
-                          setTheme('light');
+                          setSettings(prev => ({ ...prev, theme: 'light' }));
                           // Apply immediately
                           document.documentElement.classList.remove('dark');
                         }}
                         className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                          theme === 'light' 
+                          settings.theme === 'light' 
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
                             : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                         }`}
@@ -942,12 +965,12 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
                       </button>
                       <button 
                         onClick={() => {
-                          setTheme('dark');
+                          setSettings(prev => ({ ...prev, theme: 'dark' }));
                           // Apply immediately
                           document.documentElement.classList.add('dark');
                         }}
                         className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                          theme === 'dark' 
+                          settings.theme === 'dark' 
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
                             : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                         }`}
@@ -987,14 +1010,15 @@ export const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, 
           </div>
         )}
 
-        {/* Ticket History Modal */}
-        {showTicketHistory && (
-          <EmployeeTicketHistory
-            userId={user.id}
-            userName={`${user.firstName} ${user.lastName}`}
-            onClose={() => setShowTicketHistory(false)}
-          />
-        )}
+        {/* Enhanced Ticket History Modal */}
+        <TicketHistoryModal
+          isOpen={showTicketHistory}
+          onClose={() => setShowTicketHistory(false)}
+          tickets={tickets}
+          currentUser={user}
+          availableUsers={availableUsers}
+          onUpdate={handleTicketUpdate}
+        />
       </div>
     </div>
   );

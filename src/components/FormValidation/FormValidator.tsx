@@ -182,8 +182,37 @@ const useFormValidation = (initialData: any, validationRules: ValidationRules) =
   const updateField = useCallback((name: string, value: any) => {
     setFormData((prev: any) => ({ ...prev, [name]: value }));
     
-    // Validate field if it's been touched
-    if (touched[name]) {
+    // Only validate field if it's been touched AND the value is not empty
+    // This prevents showing errors while user is still typing
+    if (touched[name] && value && value.trim() !== '') {
+      const error = validateSingleField(name, value);
+      setErrors((prev: ValidationErrors) => {
+        const newErrors = { ...prev };
+        if (error) {
+          newErrors[name] = error;
+        } else {
+          delete newErrors[name];
+        }
+        return newErrors;
+      });
+    } else if (touched[name] && (!value || value.trim() === '')) {
+      // Clear error if field is empty and touched
+      setErrors((prev: ValidationErrors) => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  }, [touched, validateSingleField]);
+
+  // Mark field as touched
+  const touchField = useCallback((name: string) => {
+    setTouched((prev: any) => ({ ...prev, [name]: true }));
+    
+    // Only validate field when touched if it has a value
+    // This prevents showing errors immediately when user clicks on empty field
+    const value = formData[name];
+    if (value && value.trim() !== '') {
       const error = validateSingleField(name, value);
       setErrors((prev: ValidationErrors) => {
         const newErrors = { ...prev };
@@ -195,23 +224,6 @@ const useFormValidation = (initialData: any, validationRules: ValidationRules) =
         return newErrors;
       });
     }
-  }, [touched, validateSingleField]);
-
-  // Mark field as touched
-  const touchField = useCallback((name: string) => {
-    setTouched((prev: any) => ({ ...prev, [name]: true }));
-    
-    // Validate field when touched
-    const error = validateSingleField(name, formData[name]);
-    setErrors((prev: ValidationErrors) => {
-      const newErrors = { ...prev };
-      if (error) {
-        newErrors[name] = error;
-      } else {
-        delete newErrors[name];
-      }
-      return newErrors;
-    });
   }, [formData, validateSingleField]);
 
   // Reset form
@@ -294,10 +306,10 @@ export const EnhancedInput: React.FC<EnhancedInputProps> = ({
   const getInputStyles = () => {
     let baseStyles = 'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors';
     
-    if (error && touched) {
+    if (error && touched && value && value.trim() !== '') {
       baseStyles += ' border-red-300 focus:border-red-500 focus:ring-red-200 bg-red-50 dark:bg-red-900/20';
-    } else if (touched && !error && value) {
-      baseStyles += ' border-green-300 focus:border-green-500 focus:ring-green-200 bg-green-50 dark:bg-green-900/20';
+    } else if (touched && !error && value && value.trim() !== '') {
+      baseStyles += ' border-green-300 focus:border-green-500 focus:ring-green-200';
     } else {
       baseStyles += ' border-gray-300 focus:border-blue-500 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white';
     }
@@ -333,34 +345,34 @@ export const EnhancedInput: React.FC<EnhancedInputProps> = ({
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 z-10"
           >
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         )}
         
-        {/* Validation icons */}
-        {touched && (
+        {/* Validation icons - only show when field has value and has been touched, but not for password fields with toggle */}
+        {touched && value && value.trim() !== '' && !(showPasswordToggle && type === 'password') && (
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
             {error ? (
               <AlertCircle className="h-4 w-4 text-red-500" />
-            ) : value ? (
+            ) : (
               <CheckCircle className="h-4 w-4 text-green-500" />
-            ) : null}
+            )}
           </div>
         )}
       </div>
       
-      {/* Error message */}
-      {error && touched && (
+      {/* Error message - only show if there's an actual error and field has been touched */}
+      {error && touched && error.trim() !== '' && (
         <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
           <AlertCircle className="h-3 w-3" />
           {error}
         </p>
       )}
       
-      {/* Help text for password */}
-      {showPasswordToggle && type === 'password' && validationRules && (
+      {/* Help text for password - only show when field is empty and not touched */}
+      {showPasswordToggle && type === 'password' && !value && !touched && (
         <div className="text-xs text-gray-500 dark:text-gray-400">
           <p>Enter your password to continue</p>
         </div>

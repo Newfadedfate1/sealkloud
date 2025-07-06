@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Ticket, Clock, CheckCircle, AlertTriangle, Shield, Search, MessageSquare, Database, Server, Code, Eye, CheckSquare, BarChart3, BookOpen, Plus, Brain, Settings, FileText, Activity, History } from 'lucide-react';
+import { Users, Clock, CheckCircle, AlertTriangle, Search, MessageSquare, User, ArrowRight, BarChart3, BookOpen, Brain, History, Ticket, X, Zap, Eye, Database, FileText, Activity, Shield } from 'lucide-react';
 import { User as UserType } from '../../types/user';
-import { TicketStatsCard } from './TicketStatsCard';
+import { Ticket as TicketType, TicketStatus, ProblemLevel, EscalationLevel } from '../../types/ticket';
 import { EnhancedTicketDetailModal } from '../TicketDetail/EnhancedTicketDetailModal';
 import { TicketHistoryModal } from '../TicketHistory/TicketHistoryModal';
 import { useTickets } from '../../contexts/TicketContext';
+import { TicketManagementService } from '../../services/ticketManagement';
 import { EmployeePerformanceMetrics } from './EmployeePerformanceMetrics';
 import { QuickActionsPanel } from './QuickActionsPanel';
 import { EmployeeKnowledgeBase } from './EmployeeKnowledgeBase';
@@ -14,8 +15,21 @@ import { AdvancedAnalyticsDashboard } from './AdvancedAnalyticsDashboard';
 import { IntelligentCommunicationTools } from './IntelligentCommunicationTools';
 import { ThemeToggle } from './ThemeToggle';
 import { EmployeeTicketHistory } from './EmployeeTicketHistory';
+import { DataSourceIndicator } from '../DataSourceIndicator';
+import { TestStatusIndicator } from './TestStatusIndicator';
+import { TestRunner } from '../Testing/TestRunner';
+// Quick Wins Components
+import { ExportModal } from '../ExportModal';
+// Phase 2 Components
+import { Phase2Demo } from '../Phase2Demo/Phase2Demo';
+// Phase 4 Components
+import { Phase4Demo } from '../Phase4Demo/Phase4Demo';
 import { Sidebar } from '../Sidebar/Sidebar';
 import { useToast } from '../Toast/ToastContainer';
+// Chat Components
+import { ChatInterface } from '../Chat/ChatInterface';
+import { NotificationManager } from '../Chat/ChatNotification';
+import { RealTimeStatusTracker } from './RealTimeStatusTracker';
 
 interface EmployeeL3DashboardProps {
   user: UserType;
@@ -42,30 +56,62 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
   const [showAdvancedAnalytics, setShowAdvancedAnalytics] = useState(false);
   const [showCommunicationTools, setShowCommunicationTools] = useState(false);
   const [showTicketHistory, setShowTicketHistory] = useState(false);
-  const [showTicketHistoryModal, setShowTicketHistoryModal] = useState(false);
-  const [showSelectTicketWarning, setShowSelectTicketWarning] = useState(false);
-  
-  // Sidebar navigation state
-  const [activeSection, setActiveSection] = useState('dashboard');
   const [showSettings, setShowSettings] = useState(false);
+  const [activeSection, setActiveSection] = useState('dashboard');
+  const [highlightedTicketId, setHighlightedTicketId] = useState<string | null>(null);
   
   // Settings state
-  const [highContrast, setHighContrast] = useState(false);
-  const [fontSize, setFontSize] = useState('medium');
-  const [reducedMotion, setReducedMotion] = useState(false);
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [desktopNotifications, setDesktopNotifications] = useState(true);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [settings, setSettings] = useState({
+    highContrast: false,
+    fontSize: 'medium',
+    reducedMotion: false,
+    emailNotifications: true,
+    desktopNotifications: true,
+    theme: 'system'
+  });
+  
+  // Quick Wins States
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showTestRunner, setShowTestRunner] = useState(false);
+  
+  // Phase 2 States
+  const [showPhase2Demo, setShowPhase2Demo] = useState(false);
+  // Phase 4 State
+  const [showPhase4Demo, setShowPhase4Demo] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
+  
+  // Chat States
+  const [showChat, setShowChat] = useState(false);
+  const [chatNotifications, setChatNotifications] = useState<Array<{
+    id: string;
+    senderName: string;
+    content: string;
+    timestamp: Date;
+  }>>([]);
 
-  // Filter tickets for L3 using the ticket service
+  // Filter tickets for L3 using the new system
   const myTickets = tickets.filter(ticket => ticket.assignedTo === user.id);
   const availableTickets = ticketService.getAvailableTicketsForLevel('l3');
   
+  // Debug logging
+  console.log('🔍 Ticket Debug Info:', {
+    totalTickets: tickets.length,
+    myTickets: myTickets.length,
+    availableTickets: availableTickets.length,
+    ticketsWithNewFields: tickets.filter(t => t.currentLevel && t.availableToLevels).length,
+    unassignedTickets: tickets.filter(t => t.status === 'unassigned').length,
+    availableForAssignment: tickets.filter(t => t.isAvailableForAssignment).length,
+    currentUserId: user.id,
+    assignedTickets: tickets.filter(t => t.assignedTo).map(t => ({ id: t.id, assignedTo: t.assignedTo, status: t.status })),
+    myTicketsDetails: myTickets.map(t => ({ id: t.id, assignedTo: t.assignedTo, status: t.status, isAvailable: t.isAvailableForAssignment }))
+  });
+  
   const userStats = {
     assigned: myTickets.length,
-    available: availableTickets.length,
+    inProgress: myTickets.filter(t => t.status === 'in-progress').length,
     resolved: myTickets.filter(t => t.status === 'resolved').length,
-    critical: tickets.filter(t => t.problemLevel === 'critical' && t.status !== 'resolved').length
+    available: availableTickets.length
   };
 
   const availableUsers = [
@@ -73,6 +119,11 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
     { id: '4', email: 'l2tech@sealkloud.com', firstName: 'Level 2', lastName: 'Tech', role: 'employee_l2' as const, companyId: 'sealkloud', isActive: true },
     { id: '5', email: 'l3expert@sealkloud.com', firstName: 'Level 3', lastName: 'Expert', role: 'employee_l3' as const, companyId: 'sealkloud', isActive: true }
   ];
+
+  // Initialize the service with current data
+  React.useEffect(() => {
+    ticketService.initialize(tickets, availableUsers);
+  }, [tickets, availableUsers, ticketService]);
 
   const handleTicketUpdate = (ticketId: string, updates: any) => {
     updateTicket(ticketId, updates);
@@ -82,53 +133,312 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
   const handleTakeTicket = (ticketId: string) => {
     const result = takeTicket(ticketId, user.id);
     if (result.success) {
-      addToast({
-        type: 'success',
-        title: 'Ticket Taken',
-        message: `Successfully took ticket ${ticketId}`,
-        duration: 2500
-      });
+      showToast(result.message, 'success');
     } else {
-      addToast({
-        type: 'error',
-        title: 'Error',
-        message: result.message,
-        duration: 3000
+      showToast(result.message, 'error');
+    }
+  };
+
+  const handlePushToLevel = (ticketId: string, targetLevel: 'l2' | 'l3') => {
+    const reason = targetLevel === 'l2' ? 'Requires technical expertise' : 'Requires expert intervention';
+    const result = pushTicketToLevel(ticketId, user.id, targetLevel, reason);
+    if (result.success) {
+      showToast(result.message, 'success');
+    } else {
+      showToast(result.message, 'error');
+    }
+  };
+
+  const handleStartWork = (ticketId: string) => {
+    handleTicketUpdate(ticketId, { 
+      status: 'in-progress',
+      lastUpdated: new Date()
+    });
+  };
+
+  const handleResolveTicket = (ticketId: string) => {
+    handleTicketUpdate(ticketId, { 
+      status: 'resolved',
+      resolvedDate: new Date(),
+      lastUpdated: new Date()
+    });
+  };
+
+  const handleEscalateTicket = (ticketId: string) => {
+    handleTicketUpdate(ticketId, {
+      status: 'escalated',
+      lastUpdated: new Date(),
+      activityLog: [
+        ...(tickets.find(t => t.id === ticketId)?.activityLog || []),
+        {
+          id: `activity-${Date.now()}`,
+          ticketId: ticketId,
+          userId: user.id,
+          userName: `${user.firstName} ${user.lastName}`,
+          action: 'escalate',
+          description: `Ticket escalated by ${user.firstName} ${user.lastName}`,
+          timestamp: new Date()
+        }
+      ]
+    });
+  };
+
+  const handleDelegateTicket = (ticketId: string) => {
+    handleTicketUpdate(ticketId, {
+      status: 'delegated',
+      lastUpdated: new Date(),
+      activityLog: [
+        ...(tickets.find(t => t.id === ticketId)?.activityLog || []),
+        {
+          id: `activity-${Date.now()}`,
+          ticketId: ticketId,
+          userId: user.id,
+          userName: `${user.firstName} ${user.lastName}`,
+          action: 'delegate',
+          description: `Ticket delegated by ${user.firstName} ${user.lastName}`,
+          timestamp: new Date()
+        }
+      ]
+    });
+  };
+
+  const handleSendUpdate = (ticketId: string) => {
+    const update = prompt('Enter update message:');
+    if (update) {
+      handleTicketUpdate(ticketId, {
+        lastUpdated: new Date(),
+        activityLog: [
+          ...(tickets.find(t => t.id === ticketId)?.activityLog || []),
+          {
+            id: `activity-${Date.now()}`,
+            ticketId: ticketId,
+            userId: user.id,
+            userName: `${user.firstName} ${user.lastName}`,
+            action: 'update',
+            description: `Update sent: ${update}`,
+            timestamp: new Date()
+          }
+        ]
       });
     }
   };
 
-  // Phase 1 Enhancement Handlers
+  const handleRequestInfo = (ticketId: string) => {
+    const request = prompt('What information do you need?');
+    if (request) {
+      handleTicketUpdate(ticketId, {
+        status: 'waiting-for-info',
+        lastUpdated: new Date(),
+        activityLog: [
+          ...(tickets.find(t => t.id === ticketId)?.activityLog || []),
+          {
+            id: `activity-${Date.now()}`,
+            ticketId: ticketId,
+            userId: user.id,
+            userName: `${user.firstName} ${user.lastName}`,
+            action: 'request-info',
+            description: `Information requested: ${request}`,
+            timestamp: new Date()
+          }
+        ]
+      });
+    }
+  };
+
+  const handleScheduleCall = (ticketId: string) => {
+    const callDetails = prompt('Enter call details (date/time):');
+    if (callDetails) {
+      handleTicketUpdate(ticketId, {
+        status: 'call-scheduled',
+        lastUpdated: new Date(),
+        activityLog: [
+          ...(tickets.find(t => t.id === ticketId)?.activityLog || []),
+          {
+            id: `activity-${Date.now()}`,
+            ticketId: ticketId,
+            userId: user.id,
+            userName: `${user.firstName} ${user.lastName}`,
+            action: 'schedule-call',
+            description: `Call scheduled: ${callDetails}`,
+            timestamp: new Date()
+          }
+        ]
+      });
+    }
+  };
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    addToast({
+      type,
+      title: type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info',
+      message,
+      duration: 3000
+    });
+  };
+
+  // Enhanced Quick Action Handlers
   const handleQuickAction = (action: string, data?: any) => {
     console.log('Quick action:', action, data);
-    // Handle different quick actions
+    const ticketId = data?.ticketId || highlightedTicketId;
+    
+    if (!ticketId) {
+      console.log('No ticket selected for action:', action);
+      return;
+    }
+
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket) {
+      console.log('Ticket not found:', ticketId);
+      return;
+    }
+
     switch (action) {
       case 'start-work':
-        // Handle start work action
+        handleStartWork(ticketId);
+        break;
+      case 'pause-work':
+        handleTicketUpdate(ticketId, {
+          status: 'paused',
+          lastUpdated: new Date(),
+          activityLog: [
+            ...ticket.activityLog,
+            {
+              id: `activity-${Date.now()}`,
+              ticketId: ticketId,
+              userId: user.id,
+              userName: `${user.firstName} ${user.lastName}`,
+              action: 'pause-work',
+              description: `Work paused by ${user.firstName} ${user.lastName}`,
+              timestamp: new Date()
+            }
+          ]
+        });
         break;
       case 'resolve-ticket':
-        // Handle resolve ticket action
+        handleResolveTicket(ticketId);
         break;
       case 'escalate-ticket':
-        // Handle escalate ticket action
+        handleEscalateTicket(ticketId);
+        break;
+      case 'delegate-ticket':
+        handleDelegateTicket(ticketId);
+        break;
+      case 'send-update':
+        handleSendUpdate(ticketId);
+        break;
+      case 'request-info':
+        handleRequestInfo(ticketId);
+        break;
+      case 'schedule-call':
+        handleScheduleCall(ticketId);
         break;
       case 'expert-review':
-        // Handle expert review action
+        handleTicketUpdate(ticketId, {
+          status: 'expert-review',
+          lastUpdated: new Date(),
+          activityLog: [
+            ...ticket.activityLog,
+            {
+              id: `activity-${Date.now()}`,
+              ticketId: ticketId,
+              userId: user.id,
+              userName: `${user.firstName} ${user.lastName}`,
+              action: 'expert-review',
+              description: `Expert review initiated by ${user.firstName} ${user.lastName}`,
+              timestamp: new Date()
+            }
+          ]
+        });
         break;
       case 'critical-flag':
-        // Handle critical flag action
+        handleTicketUpdate(ticketId, {
+          problemLevel: 'critical',
+          lastUpdated: new Date(),
+          activityLog: [
+            ...ticket.activityLog,
+            {
+              id: `activity-${Date.now()}`,
+              ticketId: ticketId,
+              userId: user.id,
+              userName: `${user.firstName} ${user.lastName}`,
+              action: 'critical-flag',
+              description: `Critical flag set by ${user.firstName} ${user.lastName}`,
+              timestamp: new Date()
+            }
+          ]
+        });
         break;
       case 'database-diagnostic':
-        // Handle database diagnostic action
+        handleTicketUpdate(ticketId, {
+          status: 'diagnostic',
+          lastUpdated: new Date(),
+          activityLog: [
+            ...ticket.activityLog,
+            {
+              id: `activity-${Date.now()}`,
+              ticketId: ticketId,
+              userId: user.id,
+              userName: `${user.firstName} ${user.lastName}`,
+              action: 'database-diagnostic',
+              description: `Database diagnostic started by ${user.firstName} ${user.lastName}`,
+              timestamp: new Date()
+            }
+          ]
+        });
         break;
       case 'system-logs':
-        // Handle system logs action
+        handleTicketUpdate(ticketId, {
+          status: 'analyzing',
+          lastUpdated: new Date(),
+          activityLog: [
+            ...ticket.activityLog,
+            {
+              id: `activity-${Date.now()}`,
+              ticketId: ticketId,
+              userId: user.id,
+              userName: `${user.firstName} ${user.lastName}`,
+              action: 'system-logs',
+              description: `System logs analysis started by ${user.firstName} ${user.lastName}`,
+              timestamp: new Date()
+            }
+          ]
+        });
         break;
       case 'performance-monitor':
-        // Handle performance monitor action
+        handleTicketUpdate(ticketId, {
+          status: 'monitoring',
+          lastUpdated: new Date(),
+          activityLog: [
+            ...ticket.activityLog,
+            {
+              id: `activity-${Date.now()}`,
+              ticketId: ticketId,
+              userId: user.id,
+              userName: `${user.firstName} ${user.lastName}`,
+              action: 'performance-monitor',
+              description: `Performance monitoring started by ${user.firstName} ${user.lastName}`,
+              timestamp: new Date()
+            }
+          ]
+        });
         break;
       case 'security-audit':
-        // Handle security audit action
+        handleTicketUpdate(ticketId, {
+          status: 'security-audit',
+          lastUpdated: new Date(),
+          activityLog: [
+            ...ticket.activityLog,
+            {
+              id: `activity-${Date.now()}`,
+              ticketId: ticketId,
+              userId: user.id,
+              userName: `${user.firstName} ${user.lastName}`,
+              action: 'security-audit',
+              description: `Security audit initiated by ${user.firstName} ${user.lastName}`,
+              timestamp: new Date()
+            }
+          ]
+        });
         break;
       default:
         console.log('Unknown action:', action);
@@ -168,15 +478,6 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
 
   const handleSaveSettings = () => {
     // Save settings to localStorage
-    const settings = {
-      highContrast,
-      fontSize,
-      reducedMotion,
-      emailNotifications,
-      desktopNotifications,
-      theme
-    };
-    
     localStorage.setItem('sealkloud-settings', JSON.stringify(settings));
     
     // Apply settings immediately
@@ -226,37 +527,25 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
   const loadSettings = () => {
     const savedSettings = localStorage.getItem('sealkloud-settings');
     if (savedSettings) {
-      const settings = JSON.parse(savedSettings);
-      setHighContrast(settings.highContrast || false);
-      setFontSize(settings.fontSize || 'medium');
-      setReducedMotion(settings.reducedMotion || false);
-      setEmailNotifications(settings.emailNotifications !== false);
-      setDesktopNotifications(settings.desktopNotifications !== false);
-      setTheme(settings.theme || 'light');
+      const parsedSettings = JSON.parse(savedSettings);
+      setSettings(parsedSettings);
       
       // Apply loaded settings
-      applySettings(settings);
+      applySettings(parsedSettings);
     }
   };
 
   const resetToDefaults = () => {
-    setHighContrast(false);
-    setFontSize('medium');
-    setReducedMotion(false);
-    setEmailNotifications(true);
-    setDesktopNotifications(true);
-    setTheme('light');
-    
-    // Apply default settings
     const defaultSettings = {
       highContrast: false,
       fontSize: 'medium',
       reducedMotion: false,
       emailNotifications: true,
       desktopNotifications: true,
-      theme: 'light'
+      theme: 'system'
     };
     
+    setSettings(defaultSettings);
     applySettings(defaultSettings);
     
     addToast({
@@ -274,6 +563,30 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
   );
 
   // Sidebar navigation handler
+  const debugTicketAssignment = () => {
+    console.log('🔧 Debug Ticket Assignment');
+    console.log('Current User:', user);
+    console.log('Total Tickets:', tickets.length);
+    console.log('My Tickets:', myTickets.length);
+    console.log('Available Tickets:', availableTickets.length);
+    
+    // Test ticket assignment
+    if (availableTickets.length > 0) {
+      const testTicket = availableTickets[0];
+      console.log('Testing assignment for ticket:', testTicket.id);
+      const result = takeTicket(testTicket.id, user.id);
+      console.log('Assignment result:', result);
+      
+      if (result.success) {
+        showToast(`Debug: Successfully assigned ticket ${testTicket.id}`, 'success');
+      } else {
+        showToast(`Debug: Failed to assign ticket ${testTicket.id} - ${result.message}`, 'error');
+      }
+    } else {
+      showToast('Debug: No available tickets to test assignment', 'info');
+    }
+  };
+
   const handleSidebarNavigate = (section: string) => {
     setActiveSection(section);
     switch (section) {
@@ -297,10 +610,25 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
         setShowWorkflowAutomation(true);
         break;
       case 'history':
-        setShowTicketHistoryModal(true);
+        setShowTicketHistory(true);
         break;
       case 'settings':
         setShowSettings(true);
+        break;
+      case 'chat':
+        setShowChat(true);
+        break;
+      case 'export':
+        setShowExportModal(true);
+        break;
+      case 'test-runner':
+        setShowTestRunner(true);
+        break;
+      case 'phase2-demo':
+        setShowPhase2Demo(true);
+        break;
+      case 'phase4-demo':
+        setShowPhase4Demo(true);
         break;
       default:
         break;
@@ -353,7 +681,12 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                 <button
                   onClick={() => {
                     if (!selectedTicket) {
-                      setShowSelectTicketWarning(true);
+                      addToast({
+                        type: 'warning',
+                        title: 'No Ticket Selected',
+                        message: 'Please select a ticket first',
+                        duration: 3000
+                      });
                     } else {
                       setShowAIAssistant(true);
                     }
@@ -366,7 +699,12 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                 <button
                   onClick={() => {
                     if (!selectedTicket) {
-                      setShowSelectTicketWarning(true);
+                      addToast({
+                        type: 'warning',
+                        title: 'No Ticket Selected',
+                        message: 'Please select a ticket first',
+                        duration: 3000
+                      });
                     } else {
                       setShowWorkflowAutomation(true);
                     }
@@ -386,7 +724,12 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                 <button
                   onClick={() => {
                     if (!selectedTicket) {
-                      setShowSelectTicketWarning(true);
+                      addToast({
+                        type: 'warning',
+                        title: 'No Ticket Selected',
+                        message: 'Please select a ticket first',
+                        duration: 3000
+                      });
                     } else {
                       setShowCommunicationTools(true);
                     }
@@ -423,8 +766,8 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
               <div className="text-sm text-gray-600 dark:text-gray-400">My Cases</div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
-              <div className="text-2xl font-bold text-red-600 dark:text-red-400">{userStats.critical}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Critical Issues</div>
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{userStats.inProgress}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">In Progress</div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">{userStats.resolved}</div>
@@ -788,8 +1131,8 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
 
         {/* Enhanced Ticket History Modal */}
         <TicketHistoryModal
-          isOpen={showTicketHistoryModal}
-          onClose={() => setShowTicketHistoryModal(false)}
+          isOpen={showTicketHistory}
+          onClose={() => setShowTicketHistory(false)}
           tickets={tickets}
           currentUser={user}
           availableUsers={availableUsers}
@@ -839,8 +1182,8 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                         </div>
                         <button 
                           onClick={() => {
-                            const newValue = !highContrast;
-                            setHighContrast(newValue);
+                            const newValue = !settings.highContrast;
+                            setSettings({ ...settings, highContrast: newValue });
                             // Apply immediately
                             if (newValue) {
                               document.documentElement.classList.add('high-contrast');
@@ -849,12 +1192,12 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                             }
                           }}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                            highContrast ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                            settings.highContrast ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
                           }`}
                         >
                           <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                              highContrast ? 'translate-x-6' : 'translate-x-1'
+                              settings.highContrast ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
                         </button>
@@ -874,10 +1217,10 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                           </div>
                         </div>
                         <select 
-                          value={fontSize}
+                          value={settings.fontSize}
                           onChange={(e) => {
                             const newSize = e.target.value;
-                            setFontSize(newSize);
+                            setSettings({ ...settings, fontSize: newSize });
                             // Apply immediately
                             const fontSizeMap = {
                               'small': '0.875rem',
@@ -911,8 +1254,8 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                         </div>
                         <button 
                           onClick={() => {
-                            const newValue = !reducedMotion;
-                            setReducedMotion(newValue);
+                            const newValue = !settings.reducedMotion;
+                            setSettings({ ...settings, reducedMotion: newValue });
                             // Apply immediately
                             if (newValue) {
                               document.documentElement.style.setProperty('--motion-reduce', '1');
@@ -921,12 +1264,12 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
                             }
                           }}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                            reducedMotion ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'
+                            settings.reducedMotion ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'
                           }`}
                         >
                           <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                              reducedMotion ? 'translate-x-6' : 'translate-x-1'
+                              settings.reducedMotion ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
                         </button>
@@ -1076,24 +1419,7 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
           </div>
         )}
 
-        {/* Warning Modal for Select Ticket */}
-        {showSelectTicketWarning && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full p-6 flex flex-col items-center">
-              <div className="mb-4">
-                <AlertTriangle className="h-10 w-10 text-yellow-500 mx-auto" />
-              </div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2 text-center">Please select a ticket first</h2>
-              <p className="text-gray-600 dark:text-gray-300 mb-6 text-center">You need to select a ticket to use this feature.</p>
-              <button
-                onClick={() => setShowSelectTicketWarning(false)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        )}
+
       </div>
     </div>
   );

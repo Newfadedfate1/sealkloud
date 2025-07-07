@@ -21,6 +21,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     error: null,
   });
 
+  const toast = useToastHelpers();
+
   // Check for existing session on mount
   useEffect(() => {
     const checkExistingSession = () => {
@@ -62,7 +64,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       // Use real API for authentication
-      const response = await authAPI.login(credentials);
+      const response = await authAPI.login(credentials, toast);
       
       if (response.success && response.data?.user) {
         const authenticatedUser = { 
@@ -90,7 +92,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }));
       throw error; // Re-throw to allow form to handle it
     }
-  }, []);
+  }, [toast]);
 
   const logout = useCallback(() => {
     console.log('Logging out user');

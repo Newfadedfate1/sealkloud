@@ -93,20 +93,23 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
   // Sidebar collapse state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  // Use safeTickets for all array operations
+  const safeTickets = Array.isArray(tickets) ? tickets : [];
+  
   // Filter tickets for L3 using the new system
-  const myTickets = tickets.filter(ticket => ticket.assignedTo === user.id);
+  const myTickets = safeTickets.filter(ticket => ticket.assignedTo === user.id);
   const availableTickets = ticketService.getAvailableTicketsForLevel('l3');
   
   // Debug logging
   console.log('🔍 Ticket Debug Info:', {
-    totalTickets: tickets.length,
+    totalTickets: safeTickets.length,
     myTickets: myTickets.length,
     availableTickets: availableTickets.length,
-    ticketsWithNewFields: tickets.filter(t => t.currentLevel && t.availableToLevels).length,
-    unassignedTickets: tickets.filter(t => t.status === 'unassigned').length,
-    availableForAssignment: tickets.filter(t => t.isAvailableForAssignment).length,
+    ticketsWithNewFields: safeTickets.filter(t => t.currentLevel && t.availableToLevels).length,
+    unassignedTickets: safeTickets.filter(t => t.status === 'unassigned').length,
+    availableForAssignment: safeTickets.filter(t => t.isAvailableForAssignment).length,
     currentUserId: user.id,
-    assignedTickets: tickets.filter(t => t.assignedTo).map(t => ({ id: t.id, assignedTo: t.assignedTo, status: t.status })),
+    assignedTickets: safeTickets.filter(t => t.assignedTo).map(t => ({ id: t.id, assignedTo: t.assignedTo, status: t.status })),
     myTicketsDetails: myTickets.map(t => ({ id: t.id, assignedTo: t.assignedTo, status: t.status, isAvailable: t.isAvailableForAssignment }))
   });
   
@@ -125,8 +128,8 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
 
   // Initialize the service with current data
   React.useEffect(() => {
-    ticketService.initialize(tickets, availableUsers);
-  }, [tickets, availableUsers, ticketService]);
+    ticketService.initialize(safeTickets, availableUsers);
+  }, [safeTickets, availableUsers, ticketService]);
 
   const handleTicketUpdate = (ticketId: string, updates: any) => {
     updateTicket(ticketId, updates);
@@ -172,7 +175,7 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
       status: 'escalated',
       lastUpdated: new Date(),
       activityLog: [
-        ...(tickets.find(t => t.id === ticketId)?.activityLog || []),
+        ...(safeTickets.find(t => t.id === ticketId)?.activityLog || []),
         {
           id: `activity-${Date.now()}`,
           ticketId: ticketId,
@@ -191,7 +194,7 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
       status: 'delegated',
       lastUpdated: new Date(),
       activityLog: [
-        ...(tickets.find(t => t.id === ticketId)?.activityLog || []),
+        ...(safeTickets.find(t => t.id === ticketId)?.activityLog || []),
         {
           id: `activity-${Date.now()}`,
           ticketId: ticketId,
@@ -211,7 +214,7 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
       handleTicketUpdate(ticketId, {
         lastUpdated: new Date(),
         activityLog: [
-          ...(tickets.find(t => t.id === ticketId)?.activityLog || []),
+          ...(safeTickets.find(t => t.id === ticketId)?.activityLog || []),
           {
             id: `activity-${Date.now()}`,
             ticketId: ticketId,
@@ -233,7 +236,7 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
         status: 'waiting-for-info',
         lastUpdated: new Date(),
         activityLog: [
-          ...(tickets.find(t => t.id === ticketId)?.activityLog || []),
+          ...(safeTickets.find(t => t.id === ticketId)?.activityLog || []),
           {
             id: `activity-${Date.now()}`,
             ticketId: ticketId,
@@ -255,7 +258,7 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
         status: 'call-scheduled',
         lastUpdated: new Date(),
         activityLog: [
-          ...(tickets.find(t => t.id === ticketId)?.activityLog || []),
+          ...(safeTickets.find(t => t.id === ticketId)?.activityLog || []),
           {
             id: `activity-${Date.now()}`,
             ticketId: ticketId,
@@ -289,7 +292,7 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
       return;
     }
 
-    const ticket = tickets.find(t => t.id === ticketId);
+    const ticket = safeTickets.find(t => t.id === ticketId);
     if (!ticket) {
       console.log('Ticket not found:', ticketId);
       return;
@@ -569,7 +572,7 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
   const debugTicketAssignment = () => {
     console.log('🔧 Debug Ticket Assignment');
     console.log('Current User:', user);
-    console.log('Total Tickets:', tickets.length);
+    console.log('Total Tickets:', safeTickets.length);
     console.log('My Tickets:', myTickets.length);
     console.log('Available Tickets:', availableTickets.length);
     
@@ -697,14 +700,14 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
           </div>
 
           {/* Critical Issues Alert */}
-          {tickets.filter(t => t.problemLevel === 'critical' && t.status !== 'resolved').length > 0 && (
+          {safeTickets.filter(t => t.problemLevel === 'critical' && t.status !== 'resolved').length > 0 && (
             <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-2 border-red-200 dark:border-red-700 rounded-xl p-6 mb-8 transition-colors duration-200">
               <div className="flex items-center gap-3 mb-4">
                 <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
                 <h2 className="text-lg font-bold text-red-900 dark:text-red-100">Critical Issues Requiring Expert Attention</h2>
               </div>
               <div className="space-y-4">
-                {tickets
+                {safeTickets
                   .filter(t => t.problemLevel === 'critical' && t.status !== 'resolved')
                   .map(ticket => (
                     <div key={ticket.id} className="bg-white dark:bg-gray-800 border-2 border-red-200 dark:border-red-700 rounded-lg p-4 transition-colors duration-200">
@@ -1050,7 +1053,7 @@ export const EmployeeL3Dashboard: React.FC<EmployeeL3DashboardProps> = ({ user, 
         <TicketHistoryModal
           isOpen={showTicketHistory}
           onClose={() => setShowTicketHistory(false)}
-          tickets={tickets}
+          tickets={safeTickets}
           currentUser={user}
           availableUsers={availableUsers}
           onUpdate={handleTicketUpdate}

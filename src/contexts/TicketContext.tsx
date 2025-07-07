@@ -3,6 +3,7 @@ import { Ticket } from '../types/ticket';
 import { User } from '../types/user';
 import { ticketsAPI, api } from '../services/api';
 import { TicketManagementService } from '../services/ticketManagement';
+import { useAuth } from '../hooks/useAuth';
 
 interface TicketContextType {
   tickets: Ticket[];
@@ -40,17 +41,23 @@ export const TicketProvider: React.FC<TicketProviderProps> = ({ children }) => {
   // Initialize ticket management service
   const ticketService = TicketManagementService.getInstance();
 
-  // Check API health and load tickets on mount
+  // Get authentication state
+  const { isAuthenticated } = useAuth();
+
+  // Check API health and load tickets on mount or when authenticated
   useEffect(() => {
-    loadTickets();
-  }, []);
+    if (isAuthenticated) {
+      loadTickets();
+    }
+  }, [isAuthenticated]);
 
   // Initialize ticket service when tickets change
   useEffect(() => {
+    if (!isAuthenticated) return;
     // Get users from API or use empty array if not available
     const initializeService = async () => {
       try {
-        const usersResponse = await api.get('/users');
+        const usersResponse = await api.get('/api/users');
         const users: User[] = usersResponse.success ? usersResponse.data : [];
         
         console.log('🔄 Context: Initializing ticket service', {
@@ -66,9 +73,8 @@ export const TicketProvider: React.FC<TicketProviderProps> = ({ children }) => {
         ticketService.initialize(tickets, []);
       }
     };
-
     initializeService();
-  }, [tickets, ticketService]);
+  }, [tickets, ticketService, isAuthenticated]);
 
   const loadTickets = async () => {
     setIsLoading(true);
@@ -146,7 +152,7 @@ export const TicketProvider: React.FC<TicketProviderProps> = ({ children }) => {
       // Force re-initialization of the service with updated tickets
       const initializeService = async () => {
         try {
-          const usersResponse = await api.get('/users');
+          const usersResponse = await api.get('/api/users');
           const users: User[] = usersResponse.success ? usersResponse.data : [];
           ticketService.initialize(updatedTickets, users);
         } catch (error) {
@@ -172,7 +178,7 @@ export const TicketProvider: React.FC<TicketProviderProps> = ({ children }) => {
       // Force re-initialization of the service with updated tickets
       const initializeService = async () => {
         try {
-          const usersResponse = await api.get('/users');
+          const usersResponse = await api.get('/api/users');
           const users: User[] = usersResponse.success ? usersResponse.data : [];
           ticketService.initialize(updatedTickets, users);
         } catch (error) {

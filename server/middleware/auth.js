@@ -11,12 +11,14 @@ export const authenticateToken = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    
-    // Verify user still exists and is active
-    const user = await getDatabase().get(
-      'SELECT id, email, first_name, last_name, role, company_id, is_active FROM users WHERE id = ? AND is_active = 1',
+    console.log('Decoded JWT:', decoded);
+    // Verify user still exists and is active (PostgreSQL style)
+    const result = await getDatabase().query(
+      'SELECT id, email, first_name, last_name, role, company_id, is_active FROM users WHERE id = $1 AND is_active = true',
       [decoded.userId]
     );
+    const user = result.rows[0];
+    console.log('Authenticated user:', user);
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid token or user not found' });
@@ -25,6 +27,7 @@ export const authenticateToken = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
+    console.error('JWT verification error:', error);
     return res.status(403).json({ error: 'Invalid or expired token' });
   }
 };

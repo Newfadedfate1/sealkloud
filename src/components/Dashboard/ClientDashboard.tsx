@@ -19,6 +19,7 @@ import { ChatInterface } from '../Chat/ChatInterface';
 import { NotificationManager } from '../Chat/ChatNotification';
 import { RealTimeStatusTracker } from './RealTimeStatusTracker';
 import { ticketsAPI } from '../../services/api';
+import { CreateTicketModal } from '../Tickets/CreateTicketModal';
 
 interface ClientDashboardProps {
   user: UserType;
@@ -47,6 +48,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
     content: string;
     timestamp: Date;
   }>>([]);
+  const [showCreateTicketModal, setShowCreateTicketModal] = useState(false);
   
   // Real-time data states
   const [clientTickets, setClientTickets] = useState<TicketType[]>([]);
@@ -62,9 +64,9 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
     try {
       // Load tickets for this client
       const response = await ticketsAPI.getAll({ clientId: user.id });
-      if (response.success && response.data) {
+      if (response.success && Array.isArray(response.data)) {
         const clientTicketsData = response.data.filter((ticket: any) => 
-          ticket.clientId === user.id || 
+          String(ticket.clientId ?? ticket.client_id) === String(user.id) ||
           ticket.clientName === `${user.firstName} ${user.lastName}`
         );
         
@@ -79,6 +81,10 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
         }, { total: 0, open: 0, resolved: 0, avgResolutionTime: 0 });
         
         setClientStats(stats);
+      } else {
+        console.error('Tickets API did not return an array:', response.data);
+        setClientTickets([]);
+        setClientStats({ totalTickets: 0, openTickets: 0, resolvedTickets: 0, avgResolutionTime: 0 });
       }
     } catch (error) {
       console.error('Error loading client data:', error);
@@ -105,10 +111,10 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
         clientName: `${user.firstName} ${user.lastName}`,
         clientId: user.id
       });
-      
       if (response.success) {
         showToast('Ticket created successfully!', 'success');
-        await loadClientData(); // Refresh the data
+        await loadClientData();
+        setShowCreateTicketModal(false);
       } else {
         showToast('Failed to create ticket', 'error');
       }
@@ -237,11 +243,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
             <div className="flex items-center gap-4">
               <ThemeToggle />
               <button
-                onClick={() => handleCreateTicket({
-                  title: 'New Support Request',
-                  description: 'Please describe your issue here...',
-                  problemLevel: 'medium'
-                })}
+                onClick={() => setShowCreateTicketModal(true)}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
               >
                 <Plus className="h-4 w-4" />
@@ -403,14 +405,17 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
       {selectedTicket && (
         <EnhancedTicketDetailModal
           ticket={selectedTicket}
+          isOpen={!!selectedTicket}
           onClose={() => setSelectedTicket(null)}
           onUpdate={handleTicketUpdate}
+          currentUser={user}
           availableUsers={[]}
         />
       )}
 
       {showExportModal && (
         <ExportModal
+          isOpen={showExportModal}
           onClose={() => setShowExportModal(false)}
           onExport={handleQuickAction}
           data={{ tickets: clientTickets, type: 'tickets' }}
@@ -418,37 +423,38 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
       )}
 
       {showTestRunner && (
-        <TestRunner
-          onClose={() => setShowTestRunner(false)}
-          onRunTests={() => console.log('Running tests...')}
-        />
+        <TestRunner />
       )}
 
       {showPhase2Demo && (
         <Phase2Demo
-          onClose={() => setShowPhase2Demo(false)}
-          onFeatureToggle={() => console.log('Feature toggled')}
+          onBack={() => setShowPhase2Demo(false)}
         />
       )}
 
       {showPhase4Demo && (
-        <Phase4Demo
-          onClose={() => setShowPhase4Demo(false)}
-          onIntegrationSetup={() => console.log('Integration setup')}
-        />
+        <Phase4Demo />
       )}
 
       {showChat && (
         <ChatInterface
+          currentUser={user}
+          isOpen={showChat}
           onClose={() => setShowChat(false)}
-          notifications={chatNotifications}
-          onSendMessage={(message) => console.log('Sending message:', message)}
         />
       )}
 
       <NotificationManager
         notifications={chatNotifications}
-        onNotificationClick={(notification) => console.log('Notification clicked:', notification)}
+        onRemoveNotification={(id) => setChatNotifications((prev) => prev.filter((n) => n.id !== id))}
+        onOpenChat={() => setShowChat(true)}
+      />
+
+      <CreateTicketModal
+        isOpen={showCreateTicketModal}
+        onClose={() => setShowCreateTicketModal(false)}
+        onSubmit={handleCreateTicket}
+        currentUser={user}
       />
     </div>
   );

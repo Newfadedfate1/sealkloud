@@ -204,22 +204,25 @@ const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, onLogou
     });
   };
 
+  // Use safeTickets for all array operations
+  const safeTickets = Array.isArray(tickets) ? tickets : [];
+
   // Filter tickets for Level 2
   const availableTickets = useMemo(() => {
-    return tickets.filter(ticket => 
+    return safeTickets.filter(ticket => 
       ticket.currentLevel === 'l2' && 
       ticket.status === 'open' &&
       (ticket.priority === 'medium' || ticket.priority === 'high')
     );
-  }, [tickets]);
+  }, [safeTickets]);
 
   // Filter my tickets (tickets assigned to current user)
   const myTickets = useMemo(() => {
-    return tickets.filter(ticket => 
+    return safeTickets.filter(ticket => 
       ticket.assignedTo === user.id && 
       ticket.currentLevel === 'l2'
     );
-  }, [tickets, user.id]);
+  }, [safeTickets, user.id]);
 
   // User stats for Level 1 compatibility
   const userStats = useMemo(() => ({
@@ -355,7 +358,7 @@ const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, onLogou
   };
 
   const handleEscalateTicket = (ticketId: string) => {
-    const ticket = tickets.find(t => t.id === ticketId);
+    const ticket = safeTickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
     // Find Level 3 employees
@@ -393,7 +396,7 @@ const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, onLogou
   };
 
   const handleDelegateTicket = (ticketId: string) => {
-    const ticket = tickets.find(t => t.id === ticketId);
+    const ticket = safeTickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
     // Find available Level 1 employees
@@ -429,7 +432,7 @@ const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, onLogou
   };
 
   const handleSendUpdate = (ticketId: string) => {
-    const ticket = tickets.find(t => t.id === ticketId);
+    const ticket = safeTickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
     const updateMessage = `Update sent via keyboard shortcut by ${user.firstName} ${user.lastName}`;
@@ -454,7 +457,7 @@ const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, onLogou
   };
 
   const handleRequestInfo = (ticketId: string) => {
-    const ticket = tickets.find(t => t.id === ticketId);
+    const ticket = safeTickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
     const infoRequest = `Information requested by ${user.firstName} ${user.lastName}`;
@@ -479,7 +482,7 @@ const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, onLogou
   };
 
   const handleScheduleCall = (ticketId: string) => {
-    const ticket = tickets.find(t => t.id === ticketId);
+    const ticket = safeTickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
     const callScheduled = `Call scheduled by ${user.firstName} ${user.lastName}`;
@@ -513,7 +516,7 @@ const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, onLogou
       return;
     }
 
-    const ticket = tickets.find(t => t.id === ticketId);
+    const ticket = safeTickets.find(t => t.id === ticketId);
     if (!ticket) {
       console.log('Ticket not found:', ticketId);
       return;
@@ -639,7 +642,7 @@ const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, onLogou
   const debugTicketAssignment = () => {
     console.log('🧪 Debug Ticket Assignment Test - Level 2');
     console.log('Current User:', { id: user.id, email: user.email, role: user.role });
-    console.log('All Tickets:', tickets.map(t => ({ 
+    console.log('All Tickets:', safeTickets.map(t => ({ 
       id: t.id, 
       clientId: t.clientId, 
       assignedTo: t.assignedTo, 

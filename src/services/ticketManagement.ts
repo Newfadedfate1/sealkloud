@@ -19,8 +19,9 @@ export class TicketManagementService {
 
   // Initialize with data
   initialize(tickets: Ticket[], users: User[]) {
+    const safeTickets = Array.isArray(tickets) ? tickets : [];
     // Ensure all tickets have required escalation fields
-    this.tickets = tickets.map(ticket => ({
+    this.tickets = safeTickets.map(ticket => ({
       ...ticket,
       currentLevel: ticket.currentLevel || 'l1',
       availableToLevels: ticket.availableToLevels || ['l1'],
@@ -32,10 +33,10 @@ export class TicketManagementService {
     
     this.users = users;
     console.log('🔧 TicketManagementService initialized:', {
-      ticketsCount: tickets.length,
+      ticketsCount: safeTickets.length,
       usersCount: users.length,
       ticketsWithNewFields: this.tickets.filter(t => t.currentLevel && t.availableToLevels).length,
-      ticketsMissingFields: tickets.length - this.tickets.filter(t => t.currentLevel && t.availableToLevels).length
+      ticketsMissingFields: safeTickets.length - this.tickets.filter(t => t.currentLevel && t.availableToLevels).length
     });
   }
 

@@ -104,15 +104,16 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   });
   
   // Debug logging
+  const safeTickets = Array.isArray(tickets) ? tickets : [];
   console.log('🔍 Ticket Debug Info:', {
-    totalTickets: tickets.length,
+    totalTickets: safeTickets.length,
     myTickets: myTickets.length,
     availableTickets: availableTickets.length,
-    ticketsWithNewFields: tickets.filter(t => t.currentLevel && t.availableToLevels).length,
-    unassignedTickets: tickets.filter(t => t.status === 'unassigned').length,
-    availableForAssignment: tickets.filter(t => t.isAvailableForAssignment).length,
+    ticketsWithNewFields: safeTickets.filter(t => t.currentLevel && t.availableToLevels).length,
+    unassignedTickets: safeTickets.filter(t => t.status === 'unassigned').length,
+    availableForAssignment: safeTickets.filter(t => t.isAvailableForAssignment).length,
     currentUserId: user.id,
-    assignedTickets: tickets.filter(t => t.assignedTo).map(t => ({ id: t.id, assignedTo: t.assignedTo, status: t.status })),
+    assignedTickets: safeTickets.filter(t => t.assignedTo).map(t => ({ id: t.id, assignedTo: t.assignedTo, status: t.status })),
     myTicketsDetails: myTickets.map(t => ({ id: t.id, assignedTo: t.assignedTo, status: t.status, isAvailable: t.isAvailableForAssignment }))
   });
   
@@ -226,7 +227,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
       return;
     }
 
-    const ticket = tickets.find(t => t.id === ticketId);
+    const ticket = safeTickets.find(t => t.id === ticketId);
     if (!ticket) {
       console.log('Ticket not found:', ticketId);
       return;
@@ -283,7 +284,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
 
   // Specific action handlers
   const handleEscalateTicket = (ticketId: string) => {
-    const ticket = tickets.find(t => t.id === ticketId);
+    const ticket = safeTickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
     // Find Level 2 employees
@@ -321,7 +322,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   };
 
   const handleDelegateTicket = (ticketId: string) => {
-    const ticket = tickets.find(t => t.id === ticketId);
+    const ticket = safeTickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
     // Find available Level 1 employees (excluding current user)
@@ -359,7 +360,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   };
 
   const handleSendUpdate = (ticketId: string) => {
-    const ticket = tickets.find(t => t.id === ticketId);
+    const ticket = safeTickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
     const updateMessage = `Update sent via keyboard shortcut by ${user.firstName} ${user.lastName}`;
@@ -384,7 +385,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   };
 
   const handleRequestInfo = (ticketId: string) => {
-    const ticket = tickets.find(t => t.id === ticketId);
+    const ticket = safeTickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
     const infoRequest = `Information requested via keyboard shortcut by ${user.firstName} ${user.lastName}`;
@@ -410,7 +411,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   };
 
   const handleScheduleCall = (ticketId: string) => {
-    const ticket = tickets.find(t => t.id === ticketId);
+    const ticket = safeTickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
     // Schedule call for tomorrow at 10 AM (example)
@@ -614,7 +615,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
   const debugTicketAssignment = () => {
     console.log('🧪 Debug Ticket Assignment Test');
     console.log('Current User:', { id: user.id, email: user.email, role: user.role });
-    console.log('All Tickets:', tickets.map(t => ({ 
+    console.log('All Tickets:', safeTickets.map(t => ({ 
       id: t.id, 
       clientId: t.clientId, 
       assignedTo: t.assignedTo, 

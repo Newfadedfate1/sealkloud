@@ -21,15 +21,17 @@ export const createAuditLog = async (data) => {
       severity = 'info'
     } = data;
 
-    const result = await getDatabase().run(
+    // Use .query() for PostgreSQL
+    const result = await getDatabase().query(
       `INSERT INTO audit_logs (
         user_id, user_email, action, resource_type, resource_id, 
         resource_name, details, ip_address, user_agent, severity
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
       [userId, userEmail, action, resourceType, resourceId, resourceName, details, ipAddress, userAgent, severity]
     );
 
-    return result.lastID;
+    // Return the inserted row's id
+    return result.rows[0]?.id;
   } catch (error) {
     console.error('Error creating audit log:', error);
     throw error;

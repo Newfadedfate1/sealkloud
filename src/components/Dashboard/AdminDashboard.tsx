@@ -27,6 +27,12 @@ interface AdminDashboardProps {
   onLogout: () => void;
 }
 
+interface SearchFilter {
+  field: string;
+  value: string;
+  operator: string;
+}
+
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   const { tickets, updateTicket, refreshTickets, ticketService, isLoading, isUsingMockData } = useTickets();
   const { addToast } = useToast();
@@ -50,6 +56,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
     timestamp: Date;
   }>>([]);
   
+  // Notifications state
+  const [notifications, setNotifications] = useState<Array<{
+    id: string;
+    title: string;
+    message: string;
+    type: 'info' | 'warning' | 'error' | 'success';
+    read: boolean;
+    timestamp: Date;
+  }>>([]);
+  
   // Real-time data states
   const [dashboardStats, setDashboardStats] = useState({
     totalTickets: 0,
@@ -67,6 +83,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
     diskUsage: 0,
     networkLatency: 0
   });
+
+  // Use safeTickets for all array operations
+  const safeTickets = Array.isArray(tickets) ? tickets : [];
 
   // Load real-time dashboard data
   const loadDashboardData = async () => {
@@ -130,9 +149,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
   ];
 
   const handleTicketUpdate = (ticketId: string, updates: any) => {
-    setTickets(prev => prev.map(ticket => 
-      ticket.id === ticketId ? { ...ticket, ...updates } : ticket
-    ));
+    updateTicket(ticketId, updates);
   };
 
   const handleNotificationMarkAsRead = (id: string) => {
@@ -168,7 +185,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
       return;
     }
 
-    const ticket = tickets.find(t => t.id === ticketId);
+    const ticket = safeTickets.find(t => t.id === ticketId);
     if (!ticket) {
       console.log('Ticket not found:', ticketId);
       return;
@@ -261,14 +278,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
   };
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [notifications, setNotifications] = useState<Array<{
-    id: string;
-    title: string;
-    message: string;
-    type: 'info' | 'warning' | 'error' | 'success';
-    timestamp: Date;
-    read: boolean;
-  }>>([]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 flex">
@@ -452,9 +461,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                   <p className="text-gray-500 dark:text-gray-400">Loading tickets...</p>
                 </div>
-              ) : tickets.length > 0 ? (
+              ) : safeTickets.length > 0 ? (
                 <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                  {tickets
+                  {safeTickets
                     .filter(ticket => 
                       ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                       ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -518,7 +527,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
       {/* Modals */}
       {selectedTicket && (
         <EnhancedTicketDetailModal
+          isOpen={!!selectedTicket}
           ticket={selectedTicket}
+          currentUser={user}
           onClose={() => setSelectedTicket(null)}
           onUpdate={handleTicketUpdate}
           availableUsers={availableUsers}
@@ -527,6 +538,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
 
       {showExportModal && (
         <ExportModal
+          isOpen={showExportModal}
           onClose={() => setShowExportModal(false)}
           onExport={handleQuickAction}
           data={{ tickets, type: 'tickets' }}
@@ -534,37 +546,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
       )}
 
       {showTestRunner && (
-        <TestRunner
-          onClose={() => setShowTestRunner(false)}
-          onRunTests={() => console.log('Running tests...')}
-        />
+        <TestRunner />
       )}
 
       {showPhase2Demo && (
         <Phase2Demo
-          onClose={() => setShowPhase2Demo(false)}
-          onFeatureToggle={() => console.log('Feature toggled')}
+          onBack={() => setShowPhase2Demo(false)}
         />
       )}
 
       {showPhase4Demo && (
-        <Phase4Demo
-          onClose={() => setShowPhase4Demo(false)}
-          onIntegrationSetup={() => console.log('Integration setup')}
-        />
+        <Phase4Demo />
       )}
 
       {showChat && (
         <ChatInterface
+          isOpen={showChat}
+          currentUser={user}
           onClose={() => setShowChat(false)}
-          notifications={chatNotifications}
-          onSendMessage={(message) => console.log('Sending message:', message)}
         />
       )}
 
       <NotificationManager
         notifications={chatNotifications}
-        onNotificationClick={(notification) => console.log('Notification clicked:', notification)}
+        onRemoveNotification={(id: string) => {
+          setChatNotifications(prev => prev.filter(n => n.id !== id));
+        }}
+        onOpenChat={() => setShowChat(true)}
       />
     </div>
   );

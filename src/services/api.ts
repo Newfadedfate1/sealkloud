@@ -80,10 +80,10 @@ const isRetryableError = (error: any): boolean => {
 const enhancedFetch = async (
   url: string,
   options: RequestInit = {},
-  showToast: boolean = true
+  showToast: boolean = true,
+  toast?: ReturnType<typeof import('../components/Toast/ToastContainer').useToastHelpers>
 ): Promise<ApiResponse> => {
   const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  const toast = useToastHelpers();
 
   try {
     const controller = new AbortController();
@@ -118,7 +118,7 @@ const enhancedFetch = async (
         requestId
       );
 
-      if (showToast) {
+      if (showToast && toast) {
         handleApiError(error, toast);
       }
 
@@ -157,7 +157,7 @@ const enhancedFetch = async (
       requestId
     );
 
-    if (showToast) {
+    if (showToast && toast) {
       handleApiError(apiError, toast);
     }
 
@@ -166,7 +166,7 @@ const enhancedFetch = async (
 };
 
 // Handle API errors with user-friendly messages
-const handleApiError = (error: ApiError, toast: ReturnType<typeof useToastHelpers>) => {
+const handleApiError = (error: ApiError, toast: ReturnType<typeof import('../components/Toast/ToastContainer').useToastHelpers>) => {
   let title = 'Request Failed';
   let message = error.message;
 
@@ -246,40 +246,40 @@ ${error.details ? `Details: ${JSON.stringify(error.details, null, 2)}` : ''}
 // API methods with enhanced error handling
 export const api = {
   // GET request
-  get: async <T = any>(endpoint: string, showToast: boolean = true): Promise<ApiResponse<T>> => {
+  get: async <T = any>(endpoint: string, showToast: boolean = true, toast?: ReturnType<typeof import('../components/Toast/ToastContainer').useToastHelpers>): Promise<ApiResponse<T>> => {
     return retryRequest(async () => {
       return enhancedFetch(`${API_CONFIG.baseURL}${endpoint}`, {
         method: 'GET',
-      }, showToast);
+      }, showToast, toast);
     });
   },
 
   // POST request
-  post: async <T = any>(endpoint: string, data?: any, showToast: boolean = true): Promise<ApiResponse<T>> => {
+  post: async <T = any>(endpoint: string, data?: any, showToast: boolean = true, toast?: ReturnType<typeof import('../components/Toast/ToastContainer').useToastHelpers>): Promise<ApiResponse<T>> => {
     return retryRequest(async () => {
       return enhancedFetch(`${API_CONFIG.baseURL}${endpoint}`, {
         method: 'POST',
-        body: data ? JSON.stringify(data) : undefined,
-      }, showToast);
+        body: JSON.stringify(data),
+      }, showToast, toast);
     });
   },
 
   // PUT request
-  put: async <T = any>(endpoint: string, data?: any, showToast: boolean = true): Promise<ApiResponse<T>> => {
+  put: async <T = any>(endpoint: string, data?: any, showToast: boolean = true, toast?: ReturnType<typeof import('../components/Toast/ToastContainer').useToastHelpers>): Promise<ApiResponse<T>> => {
     return retryRequest(async () => {
       return enhancedFetch(`${API_CONFIG.baseURL}${endpoint}`, {
         method: 'PUT',
-        body: data ? JSON.stringify(data) : undefined,
-      }, showToast);
+        body: JSON.stringify(data),
+      }, showToast, toast);
     });
   },
 
   // DELETE request
-  delete: async <T = any>(endpoint: string, showToast: boolean = true): Promise<ApiResponse<T>> => {
+  delete: async <T = any>(endpoint: string, showToast: boolean = true, toast?: ReturnType<typeof import('../components/Toast/ToastContainer').useToastHelpers>): Promise<ApiResponse<T>> => {
     return retryRequest(async () => {
       return enhancedFetch(`${API_CONFIG.baseURL}${endpoint}`, {
         method: 'DELETE',
-      }, showToast);
+      }, showToast, toast);
     });
   },
 
@@ -296,105 +296,105 @@ export const api = {
 
 // Specific API endpoints with type safety
 export const authAPI = {
-  login: async (credentials: { email: string; password: string }) => {
-    const response = await api.post<{ token: string; user: any }>('/auth/login', credentials);
+  login: async (credentials: { email: string; password: string }, toast?: ReturnType<typeof import('../components/Toast/ToastContainer').useToastHelpers>) => {
+    const response = await api.post<{ token: string; user: any }>('/api/auth/login', credentials, true, toast);
     if (response.success && response.data?.token) {
       localStorage.setItem('token', response.data.token);
     }
     return response;
   },
 
-  logout: async () => {
+  logout: async (toast?: ReturnType<typeof import('../components/Toast/ToastContainer').useToastHelpers>) => {
     try {
-      await api.post('/auth/logout');
+      await api.post('/api/auth/logout', undefined, true, toast);
     } finally {
       localStorage.removeItem('token');
     }
   },
 
-  register: async (userData: { email: string; password: string; name: string }) => {
-    return api.post<{ token: string; user: any }>('/auth/register', userData);
+  register: async (userData: { email: string; password: string; name: string }, toast?: ReturnType<typeof import('../components/Toast/ToastContainer').useToastHelpers>) => {
+    return api.post<{ token: string; user: any }>('/api/auth/register', userData, true, toast);
   },
 
-  verifyToken: async () => {
-    return api.get<{ user: any }>('/auth/verify', false);
+  verifyToken: async (toast?: ReturnType<typeof import('../components/Toast/ToastContainer').useToastHelpers>) => {
+    return api.get<{ user: any }>('/api/auth/verify', false, toast);
   },
 };
 
 export const ticketsAPI = {
-  getAll: async (params?: { status?: string; priority?: string; page?: number; limit?: number }) => {
+  getAll: async (params?: { status?: string; priority?: string; page?: number; limit?: number; clientId?: string }) => {
     const queryString = params ? `?${new URLSearchParams(params as any).toString()}` : '';
-    return api.get<any[]>(`/tickets${queryString}`);
+    return api.get<any[]>(`/api/tickets${queryString}`);
   },
 
   getById: async (id: string) => {
-    return api.get<any>(`/tickets/${id}`);
+    return api.get<any>(`/api/tickets/${id}`);
   },
 
   create: async (ticketData: any) => {
-    return api.post<any>('/tickets', ticketData);
+    return api.post<any>('/api/tickets', ticketData);
   },
 
   update: async (id: string, updates: any) => {
-    return api.put<any>(`/tickets/${id}`, updates);
+    return api.put<any>(`/api/tickets/${id}`, updates);
   },
 
   delete: async (id: string) => {
-    return api.delete(`/tickets/${id}`);
+    return api.delete(`/api/tickets/${id}`);
   },
 
   updateStatus: async (id: string, status: string) => {
-    return api.patch<any>(`/tickets/${id}/status`, { status });
+    return api.patch<any>(`/api/tickets/${id}/status`, { status });
   },
 
   addComment: async (id: string, comment: string) => {
-    return api.post<any>(`/tickets/${id}/comments`, { comment });
+    return api.post<any>(`/api/tickets/${id}/comments`, { comment });
   },
 
   // New ticket assignment functions
   claimTicket: async (ticketId: string) => {
-    return api.post<any>(`/tickets/${ticketId}/claim`);
+    return api.post<any>(`/api/tickets/${ticketId}/claim`);
   },
 
   getAvailableTickets: async (params?: { page?: number; limit?: number; search?: string }) => {
     const queryString = params ? `?${new URLSearchParams(params as any).toString()}` : '';
-    return api.get<any>(`/tickets/available/l1${queryString}`);
+    return api.get<any>(`/api/tickets/available/l1${queryString}`);
   },
 
   getMyTickets: async (params?: { page?: number; limit?: number; status?: string; search?: string }) => {
     const queryString = params ? `?${new URLSearchParams(params as any).toString()}` : '';
-    return api.get<any>(`/tickets/my-tickets${queryString}`);
+    return api.get<any>(`/api/tickets/my-tickets${queryString}`);
   },
 };
 
 export const usersAPI = {
   getAll: async (params?: { page?: number; limit?: number; role?: string; search?: string }) => {
     const queryString = params ? `?${new URLSearchParams(params as any).toString()}` : '';
-    return api.get<any>(`/users${queryString}`);
+    return api.get<any>(`/api/users${queryString}`);
   },
 
   getById: async (id: string) => {
-    return api.get<any>(`/users/${id}`);
+    return api.get<any>(`/api/users/${id}`);
   },
 
   create: async (userData: { email: string; password: string; firstName: string; lastName: string; role: string }) => {
-    return api.post<any>('/users', userData);
+    return api.post<any>('/api/users', userData);
   },
 
   update: async (id: string, updates: any) => {
-    return api.patch<any>(`/users/${id}`, updates);
+    return api.patch<any>(`/api/users/${id}`, updates);
   },
 
   delete: async (id: string) => {
-    return api.delete(`/users/${id}`);
+    return api.delete(`/api/users/${id}`);
   },
 
   toggleStatus: async (id: string, isActive: boolean) => {
-    return api.patch<any>(`/users/${id}`, { isActive });
+    return api.patch<any>(`/api/users/${id}`, { isActive });
   },
 
   updateRole: async (id: string, role: string) => {
-    return api.patch<any>(`/users/${id}`, { role });
+    return api.patch<any>(`/api/users/${id}`, { role });
   },
 };
 

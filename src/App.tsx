@@ -38,16 +38,12 @@ function App() {
     console.log('App is loading...');
     return (
       <ErrorBoundary>
-        <ThemeProvider>
-          <ToastProvider>
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-              </div>
-            </div>
-          </ToastProvider>
-        </ThemeProvider>
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+          </div>
+        </div>
       </ErrorBoundary>
     );
   }
@@ -57,15 +53,11 @@ function App() {
     console.log('Showing login page - not authenticated or no user');
     return (
       <ErrorBoundary>
-        <ThemeProvider>
-          <ToastProvider>
-            <AccessibilityProvider>
-              <PerformanceProvider>
-                <LoginPage />
-              </PerformanceProvider>
-            </AccessibilityProvider>
-          </ToastProvider>
-        </ThemeProvider>
+        <AccessibilityProvider>
+          <PerformanceProvider>
+            <LoginPage />
+          </PerformanceProvider>
+        </AccessibilityProvider>
       </ErrorBoundary>
     );
   }
@@ -77,13 +69,9 @@ function App() {
   if (user.role === 'demo') {
     return (
       <ErrorBoundary>
-        <ThemeProvider>
-          <ToastProvider>
-            <AccessibilityProvider>
-              <QuickWinsDemo />
-            </AccessibilityProvider>
-          </ToastProvider>
-        </ThemeProvider>
+        <AccessibilityProvider>
+          <QuickWinsDemo />
+        </AccessibilityProvider>
       </ErrorBoundary>
     );
   }
@@ -94,15 +82,11 @@ function App() {
         console.log('Rendering ClientDashboard');
         return (
           <ErrorBoundary>
-            <ThemeProvider>
-              <ToastProvider>
-                <AccessibilityProvider>
-                  <PerformanceProvider>
-                    <ClientDashboard user={user} onLogout={logout} />
-                  </PerformanceProvider>
-                </AccessibilityProvider>
-              </ToastProvider>
-            </ThemeProvider>
+            <AccessibilityProvider>
+              <PerformanceProvider>
+                <ClientDashboard user={user} onLogout={logout} />
+              </PerformanceProvider>
+            </AccessibilityProvider>
           </ErrorBoundary>
         );
       case 'employee_l1':
@@ -111,65 +95,32 @@ function App() {
         console.log('Rendering EmployeeDashboard');
         return (
           <ErrorBoundary>
-            <ThemeProvider>
-              <ToastProvider>
-                <AccessibilityProvider>
-                  <PerformanceProvider>
-                    <EmployeeDashboard user={user} onLogout={logout} />
-                  </PerformanceProvider>
-                </AccessibilityProvider>
-              </ToastProvider>
-            </ThemeProvider>
+            <AccessibilityProvider>
+              <PerformanceProvider>
+                <EmployeeDashboard user={user} onLogout={logout} />
+              </PerformanceProvider>
+            </AccessibilityProvider>
           </ErrorBoundary>
         );
       case 'admin':
         console.log('Rendering AdminDashboard');
         return (
           <ErrorBoundary>
-            <ThemeProvider>
-              <ToastProvider>
-                <AccessibilityProvider>
-                  <PerformanceProvider>
-                    <AdminDashboard user={user} onLogout={logout} />
-                  </PerformanceProvider>
-                </AccessibilityProvider>
-              </ToastProvider>
-            </ThemeProvider>
+            <AccessibilityProvider>
+              <PerformanceProvider>
+                <AdminDashboard user={user} onLogout={logout} />
+              </PerformanceProvider>
+            </AccessibilityProvider>
           </ErrorBoundary>
         );
       default:
         console.error('Unknown user role:', user.role);
         return (
           <ErrorBoundary>
-            <ThemeProvider>
-              <ToastProvider>
-                <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-                  <div className="text-center">
-                    <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Unknown User Role</h1>
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">Role: {user.role}</p>
-                    <button
-                      onClick={logout}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-                    >
-                      Back to Login
-                    </button>
-                  </div>
-                </div>
-              </ToastProvider>
-            </ThemeProvider>
-          </ErrorBoundary>
-        );
-    }
-  } catch (error) {
-    console.error('Error rendering dashboard:', error);
-    return (
-      <ErrorBoundary>
-        <ThemeProvider>
-          <ToastProvider>
             <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
               <div className="text-center">
-                <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Error Loading Dashboard</h1>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">Please try logging in again</p>
+                <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Unknown User Role</h1>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">Role: {user.role}</p>
                 <button
                   onClick={logout}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
@@ -178,8 +129,25 @@ function App() {
                 </button>
               </div>
             </div>
-          </ToastProvider>
-        </ThemeProvider>
+          </ErrorBoundary>
+        );
+    }
+  } catch (error) {
+    console.error('Error rendering dashboard:', error);
+    return (
+      <ErrorBoundary>
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Error Loading Dashboard</h1>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">Please try logging in again</p>
+            <button
+              onClick={logout}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            >
+              Back to Login
+            </button>
+          </div>
+        </div>
       </ErrorBoundary>
     );
   }

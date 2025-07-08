@@ -90,6 +90,11 @@ router.get('/', [
 
     const result = await getDatabase().query(ticketsQuery, queryParams);
 
+    // Debug: Log tickets returned for client
+    if (req.user.role === 'client') {
+      console.log('[DEBUG] Tickets returned for client', req.user.id, ':', result.rows.map(r => ({ id: r.ticket_id, status: r.status, client_id: r.client_id })));
+    }
+
     res.json({
       tickets: result.rows.map(row => ({
         id: row.ticket_id,
@@ -220,6 +225,7 @@ router.post('/', [
     }
 
     // Insert ticket (PostgreSQL style)
+    console.log('[DEBUG] Inserting ticket with values:', { ticketId, finalClientName, clientId, title, description, problemLevel });
     const insertResult = await getDatabase().query(
       `INSERT INTO tickets (ticket_id, client_name, client_id, title, description, problem_level, status)
        VALUES ($1, $2, $3, $4, $5, $6, 'unassigned') RETURNING id`,
@@ -260,7 +266,7 @@ router.post('/', [
 });
 
 // Update ticket (assign, change status, etc.)
-router.patch('/:ticketId', requireEmployee, [
+router.patch('/:ticketId', [
   body('status').optional().isIn(['open', 'unassigned', 'in-progress', 'resolved', 'closed']),
   body('assignedTo').optional().isInt(),
   body('problemLevel').optional().isIn(['low', 'medium', 'high', 'critical'])

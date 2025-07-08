@@ -49,6 +49,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
     timestamp: Date;
   }>>([]);
   const [showCreateTicketModal, setShowCreateTicketModal] = useState(false);
+  const [showTicketHistory, setShowTicketHistory] = useState(false);
   
   // Real-time data states
   const [clientTickets, setClientTickets] = useState<TicketType[]>([]);
@@ -59,33 +60,41 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
     avgResolutionTime: 0
   });
 
+  // Debug panel state
+  const [showDebug, setShowDebug] = useState(false);
+
+  // Filtered tickets for 'My Tickets'
+  const clientTicketsFiltered = clientTickets.filter(ticket => ticket.status !== 'resolved');
+
   // Load client-specific data
   const loadClientData = async () => {
     try {
       // Load tickets for this client
-      const response = await ticketsAPI.getAll({ clientId: user.id });
-      if (response.success && Array.isArray(response.data)) {
-        const clientTicketsData = response.data.filter((ticket: any) => 
-          String(ticket.clientId ?? ticket.client_id) === String(user.id) ||
-          ticket.clientName === `${user.firstName} ${user.lastName}`
-        );
-        
-        setClientTickets(clientTicketsData);
-        
-        // Calculate stats
-        const stats = clientTicketsData.reduce((acc: any, ticket: any) => {
-          acc.total++;
-          if (ticket.status === 'open' || ticket.status === 'in-progress') acc.open++;
-          if (ticket.status === 'resolved') acc.resolved++;
-          return acc;
-        }, { total: 0, open: 0, resolved: 0, avgResolutionTime: 0 });
-        
-        setClientStats(stats);
-      } else {
-        console.error('Tickets API did not return an array:', response.data);
-        setClientTickets([]);
-        setClientStats({ totalTickets: 0, openTickets: 0, resolvedTickets: 0, avgResolutionTime: 0 });
+      const response = await ticketsAPI.getAll();
+      let tickets: any[] = [];
+      if (
+        response.data &&
+        typeof response.data === 'object' &&
+        'tickets' in response.data &&
+        Array.isArray((response.data as any).tickets)
+      ) {
+        tickets = (response.data as any).tickets;
+      } else if (Array.isArray(response.data)) {
+        tickets = response.data;
       }
+      const clientTicketsData = tickets.filter((ticket: any) => 
+        String(ticket.clientId ?? ticket.client_id) === String(user.id) ||
+        ticket.clientName === `${user.firstName} ${user.lastName}`
+      );
+      setClientTickets(clientTicketsData);
+      // Calculate stats
+      const stats = clientTicketsData.reduce((acc: any, ticket: any) => {
+        acc.total++;
+        if (ticket.status === 'open' || ticket.status === 'in-progress') acc.open++;
+        if (ticket.status === 'resolved') acc.resolved++;
+        return acc;
+      }, { total: 0, open: 0, resolved: 0, avgResolutionTime: 0 });
+      setClientStats(stats);
     } catch (error) {
       console.error('Error loading client data:', error);
     }
@@ -193,12 +202,15 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
 
   const handleSidebarNavigate = (section: string) => {
     setActiveSection(section);
+    if (section === 'history') {
+      setShowTicketHistory(true);
+    } else {
+      setShowTicketHistory(false);
+    }
     switch (section) {
       case 'dashboard':
         break;
       case 'tickets':
-        break;
-      case 'history':
         break;
       case 'support':
         setShowChat(true);
@@ -306,97 +318,117 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
           )}
 
           {/* Main Content Area */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">My Tickets</h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Your support tickets and requests</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search tickets..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
-                    />
+          {activeSection !== 'history' && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">My Tickets</h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Your support tickets and requests</p>
                   </div>
-                  <button
-                    onClick={() => setShowExportModal(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
-                  >
-                    <Download className="h-4 w-4" />
-                    Export
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search tickets..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
+                      />
+                    </div>
+                    <button
+                      onClick={() => setShowExportModal(true)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
+                    >
+                      <Download className="h-4 w-4" />
+                      Export
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="p-6">
-              {isLoading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-500 dark:text-gray-400">Loading tickets...</p>
-                </div>
-              ) : clientTickets.length > 0 ? (
-                <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                  {clientTickets
-                    .filter(ticket => 
-                      ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      ticket.id.toLowerCase().includes(searchTerm.toLowerCase())
-                    )
-                    .map(ticket => (
-                    <div 
-                      key={ticket.id} 
-                      className={`border rounded-lg p-4 transition-all duration-200 cursor-pointer ${
-                        highlightedTicketId === ticket.id 
-                          ? 'border-blue-300 bg-blue-50 dark:bg-blue-900/20 shadow-md' 
-                          : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
-                      }`}
-                      onClick={() => setHighlightedTicketId(highlightedTicketId === ticket.id ? null : ticket.id)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="font-mono text-sm font-medium text-gray-900 dark:text-white">{ticket.id}</span>
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(ticket.status)}`}>
-                              {ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1).replace('-', ' ')}
-                            </span>
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(ticket.priority || ticket.problemLevel)}`}>
-                              {(ticket.priority || ticket.problemLevel).charAt(0).toUpperCase() + (ticket.priority || ticket.problemLevel).slice(1)}
-                            </span>
-                          </div>
-                          <h3 className="font-medium text-gray-900 dark:text-white mb-1">{ticket.title}</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{ticket.description}</p>
-                          <div className="text-xs text-gray-400 dark:text-gray-400">
-                            Updated {new Date(ticket.lastUpdated).toLocaleDateString()}
+              <div className="p-6">
+                {isLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-500 dark:text-gray-400">Loading tickets...</p>
+                  </div>
+                ) : clientTicketsFiltered.length > 0 ? (
+                  <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                    {clientTicketsFiltered
+                      .filter(ticket => 
+                        ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        ticket.id.toLowerCase().includes(searchTerm.toLowerCase())
+                      )
+                      .map(ticket => (
+                        <div 
+                          key={ticket.id} 
+                          className={`border rounded-lg p-4 transition-all duration-200 cursor-pointer ${
+                            highlightedTicketId === ticket.id 
+                              ? 'border-blue-300 bg-blue-50 dark:bg-blue-900/20 shadow-md' 
+                              : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                          }`}
+                          onClick={() => setHighlightedTicketId(highlightedTicketId === ticket.id ? null : ticket.id)}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="font-mono text-sm font-medium text-gray-900 dark:text-white">{ticket.id}</span>
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(ticket.status)}`}>
+                                  {ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1).replace('-', ' ')}
+                                </span>
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(ticket.priority || ticket.problemLevel)}`}>
+                                  {(ticket.priority || ticket.problemLevel).charAt(0).toUpperCase() + (ticket.priority || ticket.problemLevel).slice(1)}
+                                </span>
+                              </div>
+                              <h3 className="font-medium text-gray-900 dark:text-white mb-1">{ticket.title}</h3>
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{ticket.description}</p>
+                              <div className="text-xs text-gray-400 dark:text-gray-400">
+                                Updated {new Date(ticket.lastUpdated).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <div className="ml-4 flex flex-col gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTicket(ticket);
+                                }}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
+                              >
+                                View
+                              </button>
+                            </div>
                           </div>
                         </div>
-                        <div className="ml-4 flex flex-col gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedTicket(ticket);
-                            }}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
-                          >
-                            View
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Ticket className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 dark:text-gray-400">No tickets found</p>
-                  <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">Create a new ticket to get started</p>
-                </div>
-              )}
+                      ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Ticket className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500 dark:text-gray-400">No open tickets found</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">Create a new ticket to get started</p>
+                  </div>
+                )}
+              </div>
             </div>
+          )}
+
+          {/* Debug Panel */}
+          <div className="fixed bottom-0 right-0 m-4 z-50">
+            <button
+              onClick={() => setShowDebug(d => !d)}
+              className="bg-gray-800 text-white px-3 py-1 rounded shadow hover:bg-gray-700 text-xs"
+            >
+              {showDebug ? 'Hide' : 'Show'} Debug Panel
+            </button>
+            {showDebug && (
+              <div className="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded p-4 mt-2 max-w-2xl max-h-96 overflow-auto text-xs text-left shadow-xl">
+                <div className="mb-2 font-bold">All Tickets (from API):</div>
+                <pre className="whitespace-pre-wrap break-all">{JSON.stringify(clientTickets, null, 2)}</pre>
+                <div className="mb-2 mt-4 font-bold">Filtered Tickets (My Tickets):</div>
+                <pre className="whitespace-pre-wrap break-all">{JSON.stringify(clientTicketsFiltered, null, 2)}</pre>
+              </div>
+            )}
           </div>
         </main>
       </div>
@@ -441,6 +473,17 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
           currentUser={user}
           isOpen={showChat}
           onClose={() => setShowChat(false)}
+        />
+      )}
+
+      {showTicketHistory && (
+        <TicketHistoryModal
+          isOpen={showTicketHistory}
+          onClose={() => setShowTicketHistory(false)}
+          tickets={clientTickets.filter(ticket => ticket.status === 'resolved')}
+          currentUser={user}
+          availableUsers={[]}
+          onUpdate={handleTicketUpdate}
         />
       )}
 

@@ -518,5 +518,11 @@ export const workflowsAPI = {
   },
 };
 
+export const notificationsAPI = {
+  getAll: async () => {
+    return api.get<any>('/api/tickets/notifications');
+  },
+};
+
 // Export error types for use in components
 export { ApiError }; 

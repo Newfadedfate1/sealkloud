@@ -117,6 +117,10 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
     myTicketsDetails: myTickets.map(t => ({ id: t.id, assignedTo: t.assignedTo, status: t.status, isAvailable: t.isAvailableForAssignment }))
   });
   
+  // Debug panel state
+  const [showDebug, setShowDebug] = useState(false);
+  const [availableTicketsRaw, setAvailableTicketsRaw] = useState<any>(null);
+
   // Load tickets from API
   const loadTickets = async () => {
     setLoadingTickets(true);
@@ -129,9 +133,19 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
 
       // Load available tickets
       const availableTicketsResponse = await ticketsAPI.getAvailableTickets();
-      if (availableTicketsResponse.success && availableTicketsResponse.data) {
-        setAvailableTickets(availableTicketsResponse.data.tickets || []);
+      setAvailableTicketsRaw(availableTicketsResponse);
+      let availableTicketsArr: any[] = [];
+      if (
+        availableTicketsResponse.data &&
+        typeof availableTicketsResponse.data === 'object' &&
+        'tickets' in availableTicketsResponse.data &&
+        Array.isArray((availableTicketsResponse.data as any).tickets)
+      ) {
+        availableTicketsArr = (availableTicketsResponse.data as any).tickets;
+      } else if (Array.isArray(availableTicketsResponse.data)) {
+        availableTicketsArr = availableTicketsResponse.data;
       }
+      setAvailableTickets(availableTicketsArr);
 
       // Update stats
       const myTicketsData = myTicketsResponse.success ? (myTicketsResponse.data.tickets || []) : [];
@@ -176,18 +190,33 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
     setSelectedTicket(null);
   };
 
+  // Helper to open ticket details and fetch latest data
+  const openTicketDetails = async (ticketId: string) => {
+    try {
+      const response = await ticketsAPI.getById(ticketId);
+      if (response.success && response.data && response.data.ticket) {
+        setSelectedTicket(response.data.ticket);
+      } else {
+        showToast('Failed to load ticket details', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to load ticket details', 'error');
+    }
+  };
+
   const handleTakeTicket = async (ticketId: string) => {
     try {
       const response = await ticketsAPI.claimTicket(ticketId);
+      await loadTickets(); // Always reload tickets after claim
+      setSelectedTicket(null); // Close modal after claim
       if (response.success) {
         showToast('Ticket successfully claimed!', 'success');
-        // Reload tickets to update the lists
-        await loadTickets();
       } else {
         showToast(response.error?.message || 'Failed to claim ticket', 'error');
       }
     } catch (error) {
-      console.error('Error claiming ticket:', error);
+      await loadTickets(); // Reload even on error
+      setSelectedTicket(null); // Close modal on error
       showToast('Failed to claim ticket', 'error');
     }
   };
@@ -563,11 +592,17 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
     }
   };
 
+  // Update filteredMyTickets to exclude resolved tickets
   const filteredMyTickets = myTickets.filter(ticket =>
-    ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ticket.clientName.toLowerCase().includes(searchTerm.toLowerCase())
+    ticket.status !== 'resolved' && (
+      ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ticket.clientName.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   );
+
+  // Add a filter for resolved tickets assigned to this employee
+  const myResolvedTickets = myTickets.filter(ticket => ticket.status === 'resolved');
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -896,7 +931,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedTicket(ticket);
+                                openTicketDetails(ticket.id);
                               }}
                               className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-1"
                             >
@@ -1169,7 +1204,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
         <TicketHistoryModal
           isOpen={false}
           onClose={() => {}}
-          tickets={[]}
+          tickets={myResolvedTickets}
           currentUser={user}
           availableUsers={[]}
           onUpdate={(id, updates) => {}}
@@ -1290,6 +1325,23 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
                 <Phase4Demo />
               </div>
             </div>
+          </div>
+        )}
+      </div>
+      {/* Debug Panel */}
+      <div className="fixed bottom-0 right-0 m-4 z-50">
+        <button
+          onClick={() => setShowDebug(d => !d)}
+          className="bg-gray-800 text-white px-3 py-1 rounded shadow hover:bg-gray-700 text-xs"
+        >
+          {showDebug ? 'Hide' : 'Show'} Debug Panel
+        </button>
+        {showDebug && (
+          <div className="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded p-4 mt-2 max-w-2xl max-h-96 overflow-auto text-xs text-left shadow-xl">
+            <div className="mb-2 font-bold">Raw Available Tickets API Response:</div>
+            <pre className="whitespace-pre-wrap break-all">{JSON.stringify(availableTicketsRaw, null, 2)}</pre>
+            <div className="mb-2 mt-4 font-bold">Available Tickets (parsed):</div>
+            <pre className="whitespace-pre-wrap break-all">{JSON.stringify(availableTickets, null, 2)}</pre>
           </div>
         )}
       </div>

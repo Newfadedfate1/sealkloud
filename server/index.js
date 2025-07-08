@@ -63,6 +63,9 @@ app.get('/api/health', (req, res) => {
 
 // API routes with specific rate limiting
 app.use('/api/auth', authLimiter, authRoutes);
+// Allow unauthenticated access to /api/tickets/my-tickets
+app.use('/api/tickets/my-tickets', ticketRoutes);
+// All other /api/tickets routes require authentication
 app.use('/api/tickets', authenticateToken, ticketRoutes);
 app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);

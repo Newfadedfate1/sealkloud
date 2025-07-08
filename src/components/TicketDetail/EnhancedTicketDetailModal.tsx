@@ -258,14 +258,17 @@ export const EnhancedTicketDetailModal: React.FC<EnhancedTicketDetailModalProps>
     }
   };
 
-  const formatTimestamp = (date: Date) => {
+  const formatTimestamp = (date: Date | string | undefined | null) => {
+    if (!date) return 'N/A';
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return 'N/A';
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
-    }).format(date);
+    }).format(d);
   };
 
   const getWorkflowStep = () => {
@@ -371,7 +374,7 @@ export const EnhancedTicketDetailModal: React.FC<EnhancedTicketDetailModalProps>
                   {isEditing ? (
                     <select
                       value={editForm.problemLevel}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, problemLevel: e.target.value }))}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, problemLevel: e.target.value as ProblemLevel }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                     >
                       <option value="low">Low</option>
@@ -406,7 +409,7 @@ export const EnhancedTicketDetailModal: React.FC<EnhancedTicketDetailModalProps>
                   {isEditing ? (
                     <select
                       value={editForm.status}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value as TicketStatus }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                     >
                       <option value="open">Open</option>

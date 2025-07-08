@@ -20,6 +20,7 @@ import { NotificationManager } from '../Chat/ChatNotification';
 import { RealTimeStatusTracker } from './RealTimeStatusTracker';
 import { ticketsAPI } from '../../services/api';
 import { CreateTicketModal } from '../Tickets/CreateTicketModal';
+import { notificationsAPI } from '../../services/api';
 
 interface ClientDashboardProps {
   user: UserType;
@@ -65,6 +66,22 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
 
   // Filtered tickets for 'My Tickets'
   const clientTicketsFiltered = clientTickets.filter(ticket => ticket.status !== 'resolved');
+  // Add a filter for resolved tickets for this client
+  const clientResolvedTickets = clientTickets.filter(ticket => ticket.status === 'resolved');
+
+  // Notifications state
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
+  // Fetch notifications when Messages section is active
+  useEffect(() => {
+    if (activeSection === 'messages') {
+      setLoadingNotifications(true);
+      notificationsAPI.getAll().then((res) => {
+        setNotifications((res.data && res.data.notifications) || []);
+      }).finally(() => setLoadingNotifications(false));
+    }
+  }, [activeSection]);
 
   // Load client-specific data
   const loadClientData = async () => {
@@ -272,6 +289,26 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
         </header>
 
         <main className="max-w-7xl mx-auto px-4 py-8">
+          {/* Messages Section */}
+          {activeSection === 'messages' && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Messages</h2>
+              {loadingNotifications ? (
+                <div className="text-gray-500 dark:text-gray-400">Loading messages...</div>
+              ) : notifications.length === 0 ? (
+                <div className="text-gray-500 dark:text-gray-400">No messages yet.</div>
+              ) : (
+                <ul className="space-y-4">
+                  {notifications.map((n) => (
+                    <li key={n.id} className="border-b border-gray-200 dark:border-gray-700 pb-2">
+                      <div className="text-sm text-gray-900 dark:text-white">{n.message}</div>
+                      <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">{new Date(n.created_at).toLocaleString()}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           {/* Client Stats Overview */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-200">
@@ -480,7 +517,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
         <TicketHistoryModal
           isOpen={showTicketHistory}
           onClose={() => setShowTicketHistory(false)}
-          tickets={clientTickets.filter(ticket => ticket.status === 'resolved')}
+          tickets={clientResolvedTickets}
           currentUser={user}
           availableUsers={[]}
           onUpdate={handleTicketUpdate}

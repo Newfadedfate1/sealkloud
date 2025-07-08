@@ -112,11 +112,16 @@ export const TicketProvider: React.FC<TicketProviderProps> = ({ children }) => {
 
   const updateTicket = async (ticketId: string, updates: Partial<Ticket>) => {
     try {
-      const response = await ticketsAPI.update(ticketId, updates);
+      let response;
+      if (Object.keys(updates).length === 1 && updates.status) {
+        // Only status is being updated (e.g., resolving)
+        response = await ticketsAPI.updateStatus(ticketId, updates.status);
+      } else {
+        response = await ticketsAPI.update(ticketId, updates);
+      }
       if (response.success && response.data) {
-        setTickets(prev => prev.map(ticket => 
-          ticket.id === ticketId ? { ...ticket, ...response.data } : ticket
-        ));
+        // Always reload tickets from backend after update
+        await loadTickets();
         return;
       }
     } catch (error) {

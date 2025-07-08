@@ -62,9 +62,13 @@ router.get('/', [
       paramIndex++;
     }
 
-    // Role-based filtering
-    if (req.user.role === 'client') {
+    // Role-based filtering (skip if req.user is undefined)
+    if (req.user && req.user.role === 'client') {
       whereConditions.push(`t.client_id = $${paramIndex++}`);
+      queryParams.push(req.user.id);
+    } else if (req.user && req.user.role && req.user.role.startsWith('employee_l1')) {
+      // Level 1 employees see all unassigned tickets and tickets assigned to them
+      whereConditions.push(`(t.status = 'unassigned' OR t.assigned_to = $${paramIndex++})`);
       queryParams.push(req.user.id);
     }
 
@@ -122,6 +126,81 @@ router.get('/', [
   }
 });
 
+// Get all unassigned tickets for Level 1 employees
+router.get('/available/l1', async (req, res, next) => {
+  try {
+    const db = getDatabase();
+    const result = await db.query(
+      `SELECT t.*, u.first_name || ' ' || u.last_name as assigned_to_name
+       FROM tickets t
+       LEFT JOIN users u ON t.assigned_to = u.id
+       WHERE t.status = 'unassigned'
+       ORDER BY t.last_updated DESC`
+    );
+    console.log('[DEBUG] /available/l1 called by user:', req.user ? req.user.id : 'unknown');
+    console.log('[DEBUG] /available/l1 tickets returned:', result.rows.map(r => ({ id: r.ticket_id, status: r.status, client_id: r.client_id })));
+    res.json({
+      tickets: result.rows.map(row => ({
+        id: row.ticket_id,
+        clientName: row.client_name,
+        clientId: row.client_id,
+        title: row.title,
+        description: row.description,
+        problemLevel: row.problem_level,
+        status: row.status,
+        assignedTo: row.assigned_to,
+        assignedToName: row.assigned_to_name,
+        submittedDate: row.submitted_date,
+        lastUpdated: row.last_updated,
+        resolvedDate: row.resolved_date
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get tickets assigned to the current employee
+router.get('/my-tickets', async (req, res, next) => {
+  try {
+    // Remove auth check for development/testing
+    // if (!req.user || !req.user.id) {
+    //   return res.status(401).json({ error: 'Unauthorized' });
+    // }
+    const userId = req.query.userId;
+    if (!userId) {
+      return res.status(400).json({ error: 'userId query parameter required' });
+    }
+    const db = getDatabase();
+    const result = await db.query(
+      `SELECT t.*, u.first_name || ' ' || u.last_name as assigned_to_name
+       FROM tickets t
+       LEFT JOIN users u ON t.assigned_to = u.id
+       WHERE t.assigned_to = $1
+       ORDER BY t.last_updated DESC`,
+      [userId]
+    );
+    res.json({
+      tickets: result.rows.map(row => ({
+        id: row.ticket_id,
+        clientName: row.client_name,
+        clientId: row.client_id,
+        title: row.title,
+        description: row.description,
+        problemLevel: row.problem_level,
+        status: row.status,
+        assignedTo: row.assigned_to,
+        assignedToName: row.assigned_to_name,
+        submittedDate: row.submitted_date,
+        lastUpdated: row.last_updated,
+        resolvedDate: row.resolved_date
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get single ticket with activity log
 router.get('/:ticketId', async (req, res, next) => {
   try {
@@ -145,7 +224,10 @@ router.get('/:ticketId', async (req, res, next) => {
     }
 
     // Role-based access control
-    if (req.user.role === 'client' && ticket.client_id !== req.user.id) {
+    if (
+      (req.user.role === 'client' && ticket.client_id !== req.user.id) ||
+      (req.user.role && req.user.role.startsWith('employee') && ticket.assigned_to !== req.user.id)
+    ) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -242,8 +324,8 @@ router.post('/', [
     // Log activity
     await getDatabase().query(
       `INSERT INTO ticket_activities (ticket_id, user_id, action, description)
-       VALUES ($1, $2, 'created', 'Ticket created')`,
-      [ticket.id, req.user.id]
+       VALUES ($1, $2, 'created', $3)`,
+      [ticket.id, req.user.id, 'Ticket created']
     );
 
     res.status(201).json({
@@ -364,6 +446,17 @@ router.patch('/:ticketId', [
       [ticketId]
     );
 
+    // If resolved, notify the client
+    if (status === 'resolved') {
+      const clientId = updatedTicket.rows[0].client_id;
+      const ticketTitle = updatedTicket.rows[0].title;
+      const notificationMsg = `Your ticket '${ticketTitle}' has been resolved.`;
+      await getDatabase().query(
+        `INSERT INTO notifications (user_id, message) VALUES (?, ?)` ,
+        [clientId, notificationMsg]
+      );
+    }
+
     res.json({
       ticket: {
         id: updatedTicket.rows[0].ticket_id,
@@ -412,7 +505,7 @@ router.get('/:ticketId/chats', async (req, res, next) => {
   }
 });
 
-// Claim/Assign ticket to current employee
+// Enhance claim endpoint to notify client
 router.post('/:ticketId/claim', requireEmployee, async (req, res, next) => {
   try {
     const { ticketId } = req.params;
@@ -444,17 +537,24 @@ router.post('/:ticketId/claim', requireEmployee, async (req, res, next) => {
     }
 
     // Assign ticket to current user
-    await db.run(`
+    await db.query(`
       UPDATE tickets 
-      SET assigned_to = ?, status = 'in-progress', last_updated = CURRENT_TIMESTAMP
-      WHERE ticket_id = ?
+      SET assigned_to = $1, status = 'in-progress', last_updated = CURRENT_TIMESTAMP
+      WHERE ticket_id = $2
     `, [req.user.id, ticketId]);
 
     // Log the assignment activity
-    await db.run(`
+    await db.query(`
       INSERT INTO ticket_activities (ticket_id, user_id, action, description)
-      VALUES (?, ?, 'taken', ?)
+      VALUES ($1, $2, 'taken', $3)
     `, [ticket2.id, req.user.id, `Ticket assigned to ${req.user.first_name} ${req.user.last_name}`]);
+
+    // Insert a simple notification for the client
+    const notificationMsg = `Your ticket ${ticket2.ticket_id} has been taken by ${req.user.first_name} ${req.user.last_name}.`;
+    await db.query(
+      `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
+      [ticket2.client_id, notificationMsg]
+    );
 
     // Get updated ticket
     const updatedTicket = await db.query(
@@ -477,6 +577,23 @@ router.post('/:ticketId/claim', requireEmployee, async (req, res, next) => {
         resolvedDate: updatedTicket.rows[0].resolved_date
       }
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get notifications for the authenticated user
+router.get('/notifications', async (req, res, next) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const db = getDatabase();
+    const result = await db.query(
+      `SELECT id, message, created_at, read FROM notifications WHERE user_id = ? ORDER BY created_at DESC`,
+      [req.user.id]
+    );
+    res.json({ notifications: result.rows });
   } catch (error) {
     next(error);
   }

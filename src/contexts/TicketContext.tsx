@@ -99,7 +99,11 @@ export const TicketProvider: React.FC<TicketProviderProps> = ({ children }) => {
 
   const addTicket = async (ticket: Ticket) => {
     try {
-      const response = await ticketsAPI.create(ticket);
+      const ticketData = {
+        ...ticket,
+        clientId: Number(ticket.clientId)
+      };
+      const response = await ticketsAPI.create(ticketData);
       if (response.success && response.data) {
         setTickets(prev => [response.data, ...prev]);
         return;
@@ -115,7 +119,10 @@ export const TicketProvider: React.FC<TicketProviderProps> = ({ children }) => {
       let response;
       if (Object.keys(updates).length === 1 && updates.status) {
         // Only status is being updated (e.g., resolving)
-        response = await ticketsAPI.updateStatus(ticketId, updates.status);
+        // Get current user ID from localStorage or auth context
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const userId = currentUser.id ? Number(currentUser.id) : undefined;
+        response = await ticketsAPI.updateStatus(ticketId, updates.status, userId);
       } else {
         response = await ticketsAPI.update(ticketId, updates);
       }

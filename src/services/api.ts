@@ -331,8 +331,22 @@ export const ticketsAPI = {
     return api.get<any>(`/api/tickets/${id}`);
   },
 
-  create: async (ticketData: any) => {
-    return api.post<any>('/api/tickets', ticketData);
+  create: async (ticketData: {
+    title: string;
+    description: string;
+    problemLevel: string;
+    clientId: number;
+    clientName?: string;
+  }) => {
+    // Ensure all required fields are present
+    const payload = {
+      title: ticketData.title,
+      description: ticketData.description,
+      problemLevel: ticketData.problemLevel,
+      clientId: ticketData.clientId,
+      clientName: ticketData.clientName || ''
+    };
+    return api.post<any>('/api/tickets', payload);
   },
 
   update: async (id: string, updates: any) => {
@@ -343,8 +357,10 @@ export const ticketsAPI = {
     return api.delete(`/api/tickets/${id}`);
   },
 
-  updateStatus: async (id: string, status: string) => {
-    return api.patch<any>(`/api/tickets/${id}/status`, { status });
+  updateStatus: async (id: string, status: string, userId?: number) => {
+    const payload: any = { status };
+    if (userId) payload.userId = userId;
+    return api.patch<any>(`/api/tickets/${id}`, payload);
   },
 
   addComment: async (id: string, comment: string) => {
@@ -352,8 +368,10 @@ export const ticketsAPI = {
   },
 
   // New ticket assignment functions
-  claimTicket: async (ticketId: string) => {
-    return api.post<any>(`/api/tickets/${ticketId}/claim`);
+  claimTicket: async (ticketId: string, userId?: number) => {
+    const payload: any = {};
+    if (userId) payload.userId = userId;
+    return api.post<any>(`/api/tickets/${ticketId}/claim`, payload);
   },
 
   getAvailableTickets: async (params?: { page?: number; limit?: number; search?: string }) => {
@@ -519,8 +537,9 @@ export const workflowsAPI = {
 };
 
 export const notificationsAPI = {
-  getAll: async () => {
-    return api.get<any>('/api/tickets/notifications');
+  getAll: async (userId?: number) => {
+    const queryString = userId ? `?userId=${userId}` : '';
+    return api.get<any>(`/api/tickets/notifications${queryString}`);
   },
 };
 

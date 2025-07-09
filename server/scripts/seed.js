@@ -239,36 +239,39 @@ const activities = [
 ];
 
 async function seedDatabase() {
-  const db = await initializeDatabase();
+  await initializeDatabase();
+  const db = getDatabase();
   
   try {
     console.log('🌱 Starting database seeding...');
     
     // Clear existing data
     console.log('🗑️  Clearing existing data...');
-    await db.run('DELETE FROM ticket_activities');
-    await db.run('DELETE FROM tickets');
-    await db.run('DELETE FROM users');
+    await db.query('DELETE FROM ticket_activities');
+    await db.query('DELETE FROM tickets');
+    await db.query('DELETE FROM users');
     
-    // Reset auto-increment counters
-    await db.run('DELETE FROM sqlite_sequence WHERE name IN ("users", "tickets", "ticket_activities")');
+    // Reset auto-increment counters for PostgreSQL
+    await db.query('ALTER SEQUENCE users_id_seq RESTART WITH 1');
+    await db.query('ALTER SEQUENCE tickets_id_seq RESTART WITH 1');
+    await db.query('ALTER SEQUENCE ticket_activities_id_seq RESTART WITH 1');
     
     // Insert users
     console.log('👥 Creating users...');
     for (const user of users) {
       const hashedPassword = await bcrypt.hash(user.password, SALT_ROUNDS);
-      await db.run(`
+      await db.query(`
         INSERT INTO users (email, password_hash, first_name, last_name, role, company_id)
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5, $6)
       `, [user.email, hashedPassword, user.firstName, user.lastName, user.role, user.companyId]);
     }
     
     // Insert tickets
     console.log('🎫 Creating tickets...');
     for (const ticket of tickets) {
-      await db.run(`
+      await db.query(`
         INSERT INTO tickets (ticket_id, client_name, client_id, title, description, problem_level, status, assigned_to, submitted_date, last_updated, resolved_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       `, [
         ticket.ticketId,
         ticket.clientName,
@@ -287,23 +290,11 @@ async function seedDatabase() {
     // Insert activities
     console.log('📝 Creating activities...');
     for (const activity of activities) {
-      await db.run(`
+      await db.query(`
         INSERT INTO ticket_activities (ticket_id, user_id, action, description)
-        VALUES (?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4)
       `, [activity.ticketId, activity.userId, activity.action, activity.description]);
     }
-    
-    // Create ticket_chats table if not exists
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS ticket_chats (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ticket_id TEXT NOT NULL,
-        sender_id INTEGER NOT NULL,
-        sender_role TEXT NOT NULL,
-        message TEXT NOT NULL,
-        timestamp TEXT DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
     
     console.log('✅ Database seeding completed successfully!');
     console.log('\n📊 Seeded Data Summary:');

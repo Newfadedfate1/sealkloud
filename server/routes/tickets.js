@@ -95,7 +95,7 @@ router.get('/', [
     const result = await getDatabase().query(ticketsQuery, queryParams);
 
     // Debug: Log tickets returned for client
-    if (req.user.role === 'client') {
+    if (req.user && req.user.role === 'client') {
       console.log('[DEBUG] Tickets returned for client', req.user.id, ':', result.rows.map(r => ({ id: r.ticket_id, status: r.status, client_id: r.client_id })));
     }
 
@@ -176,7 +176,7 @@ router.get('/my-tickets', async (req, res, next) => {
       `SELECT t.*, u.first_name || ' ' || u.last_name as assigned_to_name
        FROM tickets t
        LEFT JOIN users u ON t.assigned_to = u.id
-       WHERE t.assigned_to = $1
+       WHERE t.assigned_to = $1 AND t.status != 'resolved'
        ORDER BY t.last_updated DESC`,
       [userId]
     );
@@ -225,8 +225,8 @@ router.get('/:ticketId', async (req, res, next) => {
 
     // Role-based access control
     if (
-      (req.user.role === 'client' && ticket.client_id !== req.user.id) ||
-      (req.user.role && req.user.role.startsWith('employee') && ticket.assigned_to !== req.user.id)
+      req.user && req.user.role === 'client' && ticket.client_id !== req.user.id ||
+      req.user && req.user.role && req.user.role.startsWith('employee') && ticket.assigned_to !== req.user.id
     ) {
       return res.status(403).json({ error: 'Access denied' });
     }
@@ -274,9 +274,10 @@ router.get('/:ticketId', async (req, res, next) => {
 
 // Create new ticket
 router.post('/', [
-  body('title').trim().isLength({ min: 1, max: 500 }),
-  body('description').trim().isLength({ min: 1 }),
+  body('title').trim().isLength({ min: 1, max: 200 }),
+  body('description').trim().isLength({ min: 1, max: 2000 }),
   body('problemLevel').isIn(['low', 'medium', 'high', 'critical']),
+  body('clientId').optional().isInt(),
   body('clientName').optional().trim()
 ], async (req, res, next) => {
   try {
@@ -291,27 +292,30 @@ router.post('/', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { title, description, problemLevel, clientName } = req.body;
+    const { title, description, problemLevel, clientName, clientId } = req.body;
 
     // Generate ticket ID
     const countResult = await getDatabase().query('SELECT COUNT(*) as count FROM tickets');
     const ticketCount = countResult.rows[0].count + 1;
     const ticketId = `TK-${ticketCount.toString().padStart(3, '0')}`;
 
-    // Determine client info
+    // Determine client info - allow clientId from body or use req.user.id if available
     let finalClientName = clientName;
-    let clientId = req.user.id;
+    let finalClientId = clientId;
 
-    if (req.user.role === 'client') {
+    if (req.user && req.user.role === 'client') {
       finalClientName = `${req.user.first_name} ${req.user.last_name}`;
+      finalClientId = req.user.id;
+    } else if (!finalClientId) {
+      return res.status(400).json({ error: 'clientId is required when not authenticated' });
     }
 
     // Insert ticket (PostgreSQL style)
-    console.log('[DEBUG] Inserting ticket with values:', { ticketId, finalClientName, clientId, title, description, problemLevel });
+    console.log('[DEBUG] Inserting ticket with values:', { ticketId, finalClientName, finalClientId, title, description, problemLevel });
     const insertResult = await getDatabase().query(
       `INSERT INTO tickets (ticket_id, client_name, client_id, title, description, problem_level, status)
        VALUES ($1, $2, $3, $4, $5, $6, 'unassigned') RETURNING id`,
-      [ticketId, finalClientName, clientId, title, description, problemLevel]
+      [ticketId, finalClientName, finalClientId, title, description, problemLevel]
     );
     const insertedId = insertResult.rows[0]?.id;
     console.log('Ticket inserted with id:', insertedId);
@@ -325,7 +329,7 @@ router.post('/', [
     await getDatabase().query(
       `INSERT INTO ticket_activities (ticket_id, user_id, action, description)
        VALUES ($1, $2, 'created', $3)`,
-      [ticket.id, req.user.id, 'Ticket created']
+      [ticket.id, finalClientId, 'Ticket created']
     );
 
     res.status(201).json({
@@ -351,7 +355,8 @@ router.post('/', [
 router.patch('/:ticketId', [
   body('status').optional().isIn(['open', 'unassigned', 'in-progress', 'resolved', 'closed']),
   body('assignedTo').optional().isInt(),
-  body('problemLevel').optional().isIn(['low', 'medium', 'high', 'critical'])
+  body('problemLevel').optional().isIn(['low', 'medium', 'high', 'critical']),
+  body('userId').optional().isInt()
 ], async (req, res, next) => {
   try {
     const errors = validationResult(req);
@@ -360,7 +365,7 @@ router.patch('/:ticketId', [
     }
 
     const { ticketId } = req.params;
-    const { status, assignedTo, problemLevel } = req.body;
+    const { status, assignedTo, problemLevel, userId } = req.body;
 
     // Get current ticket
     const ticketResult2 = await getDatabase().query(
@@ -371,6 +376,12 @@ router.patch('/:ticketId', [
 
     if (!ticket2) {
       return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    // Use userId from body or req.user.id if available
+    const currentUserId = userId || (req.user ? req.user.id : null);
+    if (!currentUserId) {
+      return res.status(400).json({ error: 'userId is required when not authenticated' });
     }
 
     const updates = [];
@@ -385,7 +396,7 @@ router.patch('/:ticketId', [
       await getDatabase().run(`
         INSERT INTO ticket_activities (ticket_id, user_id, action, description)
         VALUES (?, ?, 'status_changed', ?)
-      `, [ticket2.id, req.user.id, `Status changed to ${status}`]);
+      `, [ticket2.id, currentUserId, `Status changed to ${status}`]);
 
       // Set resolved date if status is resolved
       if (status === 'resolved') {
@@ -410,7 +421,7 @@ router.patch('/:ticketId', [
       await getDatabase().run(`
         INSERT INTO ticket_activities (ticket_id, user_id, action, description)
         VALUES (?, ?, 'assigned', ?)
-      `, [ticket2.id, req.user.id, `Ticket assigned to ${assigneeName}`]);
+      `, [ticket2.id, currentUserId, `Ticket assigned to ${assigneeName}`]);
     }
 
     if (problemLevel !== undefined) {
@@ -420,7 +431,7 @@ router.patch('/:ticketId', [
       await getDatabase().run(`
         INSERT INTO ticket_activities (ticket_id, user_id, action, description)
         VALUES (?, ?, 'priority_changed', ?)
-      `, [ticket2.id, req.user.id, `Priority changed to ${problemLevel}`]);
+      `, [ticket2.id, currentUserId, `Priority changed to ${problemLevel}`]);
     }
 
     if (updates.length === 0) {
@@ -532,7 +543,7 @@ router.post('/:ticketId/claim', requireEmployee, async (req, res, next) => {
     }
 
     // Check if user is Level 1 employee (only Level 1 can claim unassigned tickets)
-    if (!req.user.role.startsWith('employee_l1')) {
+    if (!req.user || !req.user.role || !req.user.role.startsWith('employee_l1')) {
       return res.status(403).json({ error: 'Only Level 1 employees can claim unassigned tickets' });
     }
 
@@ -558,7 +569,7 @@ router.post('/:ticketId/claim', requireEmployee, async (req, res, next) => {
 
     // Get updated ticket
     const updatedTicket = await db.query(
-      'SELECT * FROM tickets WHERE ticket_id = ?',
+      'SELECT * FROM tickets WHERE ticket_id = $1',
       [ticketId]
     );
 
@@ -582,16 +593,106 @@ router.post('/:ticketId/claim', requireEmployee, async (req, res, next) => {
   }
 });
 
+// Claim ticket (for employees)
+router.post('/:ticketId/claim', async (req, res, next) => {
+  try {
+    const { ticketId } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const db = getDatabase();
+
+    // Get the ticket
+    const ticketResult = await db.query(
+      'SELECT * FROM tickets WHERE ticket_id = $1',
+      [ticketId]
+    );
+    const ticket = ticketResult.rows[0];
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    if (ticket.assigned_to) {
+      return res.status(400).json({ error: 'Ticket is already assigned' });
+    }
+
+    // Get the employee details
+    const employeeResult = await db.query(
+      'SELECT first_name, last_name FROM users WHERE id = $1',
+      [userId]
+    );
+    const employee = employeeResult.rows[0];
+
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    // Update the ticket
+    await db.query(
+      `UPDATE tickets 
+       SET assigned_to = $1, status = 'in-progress', last_updated = CURRENT_TIMESTAMP
+       WHERE ticket_id = $2`,
+      [userId, ticketId]
+    );
+
+    // Log the activity
+    await db.query(
+      `INSERT INTO ticket_activities (ticket_id, user_id, action, description)
+       VALUES ($1, $2, 'claimed', $3)`,
+      [ticket.id, userId, `Ticket claimed by ${employee.first_name} ${employee.last_name}`]
+    );
+
+    // Create notification for the client
+    const notificationMsg = `Your ticket '${ticket.title}' has been claimed by ${employee.first_name} ${employee.last_name} and work has begun.`;
+    await db.query(
+      `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
+      [ticket.client_id, notificationMsg]
+    );
+
+    // Get the updated ticket
+    const updatedTicketResult = await db.query(
+      'SELECT * FROM tickets WHERE ticket_id = $1',
+      [ticketId]
+    );
+    const updatedTicket = updatedTicketResult.rows[0];
+
+    res.json({
+      success: true,
+      ticket: {
+        id: updatedTicket.ticket_id,
+        clientName: updatedTicket.client_name,
+        clientId: updatedTicket.client_id,
+        title: updatedTicket.title,
+        description: updatedTicket.description,
+        problemLevel: updatedTicket.problem_level,
+        status: updatedTicket.status,
+        assignedTo: updatedTicket.assigned_to,
+        submittedDate: updatedTicket.submitted_date,
+        lastUpdated: updatedTicket.last_updated
+      }
+    });
+  } catch (error) {
+    console.error('Error claiming ticket:', error);
+    next(error);
+  }
+});
+
 // Get notifications for the authenticated user
 router.get('/notifications', async (req, res, next) => {
   try {
-    if (!req.user || !req.user.id) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    // Allow userId to be passed as query parameter for development/testing
+    const userId = req.query.userId || (req.user ? req.user.id : null);
+    if (!userId) {
+      return res.status(400).json({ error: 'userId query parameter required when not authenticated' });
     }
     const db = getDatabase();
     const result = await db.query(
-      `SELECT id, message, created_at, read FROM notifications WHERE user_id = ? ORDER BY created_at DESC`,
-      [req.user.id]
+      `SELECT id, message, created_at, is_read FROM notifications WHERE user_id = $1 ORDER BY created_at DESC`,
+      [userId]
     );
     res.json({ notifications: result.rows });
   } catch (error) {

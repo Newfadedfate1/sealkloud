@@ -206,7 +206,7 @@ export const EmployeeL1Dashboard: React.FC<EmployeeL1DashboardProps> = ({ user, 
 
   const handleTakeTicket = async (ticketId: string) => {
     try {
-      const response = await ticketsAPI.claimTicket(ticketId);
+      const response = await ticketsAPI.claimTicket(ticketId, Number(user.id));
       await loadTickets(); // Always reload tickets after claim
       setSelectedTicket(null); // Close modal after claim
       if (response.success) {

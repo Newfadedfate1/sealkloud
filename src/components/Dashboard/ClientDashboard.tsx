@@ -77,11 +77,11 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout
   useEffect(() => {
     if (activeSection === 'messages') {
       setLoadingNotifications(true);
-      notificationsAPI.getAll().then((res) => {
+      notificationsAPI.getAll(Number(user.id)).then((res) => {
         setNotifications((res.data && res.data.notifications) || []);
       }).finally(() => setLoadingNotifications(false));
     }
-  }, [activeSection]);
+  }, [activeSection, user.id]);
 
   // Load client-specific data
   const loadClientData = async () => {

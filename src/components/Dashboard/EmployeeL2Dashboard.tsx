@@ -734,11 +734,6 @@ const EmployeeL2Dashboard: React.FC<EmployeeL2DashboardProps> = ({ user, onLogou
             </div>
           </div>
 
-          {/* Test Status Indicator */}
-          <div className="mb-8">
-            <TestStatusIndicator />
-          </div>
-
           {/* Highlighted Ticket Indicator */}
           {highlightedTicketId && (
             <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
